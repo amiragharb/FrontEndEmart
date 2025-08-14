@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "195140518965",
+    "project_id": "emart-5b93b",
+    "storage_bucket": "emart-5b93b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:195140518965:android:572813fbf3efe658065d7c",
+        "android_client_info": {
+          "package_name": "com.example.frontendemart"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "195140518965-1vejfgdando4jj2kv4nosc2h7s7qbukn.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.frontendemart",
+            "certificate_hash": "d477b3d7a2eeecc488c0956a5da3cbca80a1962d"
+          }
+        },
+        {
+          "client_id": "195140518965-b6rc7vt001es9nf0sl3trvk8khu6babn.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCGzD90jc2Rcj0q2ggtoajPdjqHdoKC-7I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "195140518965-b6rc7vt001es9nf0sl3trvk8khu6babn.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
