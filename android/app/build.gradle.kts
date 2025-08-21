@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.example.frontendemart"
-    compileSdk = flutter.compileSdkVersion
+     compileSdk = 35
     ndkVersion = "27.0.12077973"
 
     compileOptions {
@@ -22,7 +22,7 @@ android {
     defaultConfig {
         applicationId = "com.example.frontendemart"
         minSdk = 23
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 34
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
