@@ -1,11 +1,11 @@
 import 'dart:convert';
+import 'package:frontendemart/config/api.dart';
 import 'package:frontendemart/models/SellerItem_model.dart';
 import 'package:frontendemart/models/category_model.dart';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  final String baseUrl = "http://10.0.2.2:3002/items"; // Android émulateur
-
+final String baseUrl = ApiConfig.baseUrl;
 Future<List<Category>> fetchCategories() async {
     final uri = Uri.parse("$baseUrl/categories");
     final response = await http.get(uri, headers: {"Content-Type": "application/json"});

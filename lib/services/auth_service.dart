@@ -1,12 +1,12 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:frontendemart/config/api.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 
 class AuthService {
-  final String baseUrl = 'http://10.0.2.2:3002'; // URL backend
-
+final String baseUrl = ApiConfig.baseUrl;
   /// -------------------- LOGIN --------------------
   /// identifier = email ou numéro de téléphone égyptien
   Future<http.Response> login(String identifier, String password) async {
