@@ -10,6 +10,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
   cupertino_icons: ^1.0.8
   http: ^1.4.0
   intl: ^0.20.2
@@ -23,8 +25,8 @@ dependencies:
   sign_in_with_apple: ^6.1.3
   flutter_facebook_auth: ^6.0.4
   carousel_slider: ^5.1.1
-
-
+  flutter_3d_objects: ^1.0.2+1
+  widget_zoom: ^0.0.4
 
 dev_dependencies:
   flutter_test:
@@ -36,6 +38,8 @@ flutter:
 
   assets:
     - assets/logo_BlueTransparent.png
+
+  generate: true   # ✅ bien aligné
 
   fonts:
     - family: Roboto

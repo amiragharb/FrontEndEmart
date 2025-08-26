@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:frontendemart/change_langue/change_language.dart';
+import 'package:frontendemart/l10n/app_localizations.dart';
 import 'package:frontendemart/viewmodels/auth_viewmodel.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -11,6 +14,7 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthViewModel()),
+        ChangeNotifierProvider(create: (_) => LocaleProvider()), // ✅
       ],
       child: const MyApp(),
     ),
@@ -22,16 +26,22 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final localeProvider = Provider.of<LocaleProvider>(context);
+
     return MaterialApp(
-      title: 'eMart',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        fontFamily: 'Roboto', // ✅ applique Roboto partout
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.orange),
-        useMaterial3: true,
-      ),
-      initialRoute: AppRoutes.splash,
-      onGenerateRoute: AppRoutes.generateRoute,
-    );
+  title: 'eMart',
+  debugShowCheckedModeBanner: false,
+  theme: ThemeData(
+    fontFamily: 'Roboto',
+    colorScheme: ColorScheme.fromSeed(seedColor: Colors.orange),
+    useMaterial3: true,
+  ),
+  locale: localeProvider.locale,
+  supportedLocales: AppLocalizations.supportedLocales,          // ✅ auto-généré
+  localizationsDelegates: AppLocalizations.localizationsDelegates, // ✅ auto-généré
+  initialRoute: AppRoutes.splash,
+  onGenerateRoute: AppRoutes.generateRoute,
+);
+
   }
 }

@@ -1,9 +1,12 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:frontendemart/change_langue/change_language.dart';
+import 'package:frontendemart/l10n/app_localizations.dart';
 import 'package:frontendemart/viewmodels/auth_viewmodel.dart';
 import 'package:provider/provider.dart';
 import 'signup_screen.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -67,7 +70,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
           SafeArea(
             child: Center(
-              child: SingleChildScrollView(
+              child: SingleChildScrollView
+              (
                 padding:
                     const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                 child: Column(
@@ -79,7 +83,38 @@ class _LoginScreenState extends State<LoginScreen> {
                       height: 120,
                     ),
                     const SizedBox(height: 16),
-
+Consumer<LocaleProvider>(
+  builder: (context, localeProvider, _) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        ElevatedButton(
+          onPressed: () {
+            localeProvider.setLocale(const Locale('en'));
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: localeProvider.locale?.languageCode == 'en'
+                ? const Color(0xFFEE6B33)
+                : Colors.grey[300],
+          ),
+          child: const Text("EN"),
+        ),
+        const SizedBox(width: 12),
+        ElevatedButton(
+          onPressed: () {
+            localeProvider.setLocale(const Locale('ar'));
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: localeProvider.locale?.languageCode == 'ar'
+                ? const Color(0xFFEE6B33)
+                : Colors.grey[300],
+          ),
+          child: const Text("AR"),
+        ),
+      ],
+    );
+  },
+),
                     // GLASS CARD
                     _GlassCard(
                       width: screen.width * .9,
@@ -92,10 +127,11 @@ class _LoginScreenState extends State<LoginScreen> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 _GlassTab(
-                                  label: 'Login',
-                                  isActive: true,
-                                  underlineColor: const Color(0xFFEE6B33),
-                                ),
+  label: AppLocalizations.of(context)!.login,
+  isActive: true,
+  underlineColor: const Color(0xFFEE6B33),
+),
+
                                 const SizedBox(width: 20),
                                 GestureDetector(
                                   onTap: () {
@@ -105,14 +141,15 @@ class _LoginScreenState extends State<LoginScreen> {
                                           builder: (_) => const SignUpScreen()),
                                     );
                                   },
-                                  child: const Text(
-                                    'Sign-up',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      color: Colors.black87,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
+                                  child: Text(
+  AppLocalizations.of(context)!.signup,
+  style: const TextStyle(
+    fontSize: 16,
+    color: Colors.black87,
+    fontWeight: FontWeight.w500,
+  ),
+),
+
                                 ),
                               ],
                             ),
@@ -120,15 +157,15 @@ class _LoginScreenState extends State<LoginScreen> {
                             const SizedBox(height: 22),
                             _GlassTextField(
                               controller: emailOrPhoneController,
-                              hint: 'Email or Egyptian phone',
+hint: AppLocalizations.of(context)!.emailOrPhone,
                               icon: Icons.alternate_email,
                               validator: (v) {
                                 final value = (v ?? '').trim();
-                                if (value.isEmpty) return 'Required field';
+if (value.isEmpty) return AppLocalizations.of(context)!.requiredField;
                                 final isEmail = _emailRx.hasMatch(value);
                                 final isEgPhone = _egPhoneRx.hasMatch(value);
                                 if (!isEmail && !isEgPhone) {
-                                  return 'Enter a valid email or Egyptian phone';
+return AppLocalizations.of(context)!.invalidEmailOrPhone;
                                 }
                                 return null;
                               },
@@ -136,13 +173,12 @@ class _LoginScreenState extends State<LoginScreen> {
                             const SizedBox(height: 12),
                             _GlassTextField(
                               controller: passwordController,
-                              hint: 'Password',
+hint: AppLocalizations.of(context)!.password,
                               icon: Icons.lock,
                               obscure: _obscurePassword,
                               validator: (v) =>
-                                  v == null || v.trim().isEmpty
-                                      ? 'Required field'
-                                      : null,
+    v == null || v.trim().isEmpty ? AppLocalizations.of(context)!.requiredField : null,
+                                     
                               trailing: IconButton(
                                 icon: Icon(
                                   _obscurePassword
@@ -157,21 +193,19 @@ class _LoginScreenState extends State<LoginScreen> {
 
                             Align(
                               alignment: Alignment.centerRight,
-                              child: TextButton(
-                                onPressed: _showForgotPasswordDialog,
-                                child: const Text(
-                                  'Forget Password?',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                              ),
+                              child: Text(
+  AppLocalizations.of(context)!.forgotPassword,
+  style: const TextStyle(
+    fontWeight: FontWeight.w600,
+    color: Colors.black87,
+  ),
+),
+
                             ),
 
                             const SizedBox(height: 6),
                             _GlassButton(
-                              label: 'Login',
+  label: AppLocalizations.of(context)!.login,
                               color: const Color(0xFFEE6B33),
                               onPressed: () {
                                 if (_formKey.currentState!.validate()) {
@@ -195,17 +229,18 @@ class _LoginScreenState extends State<LoginScreen> {
 
                             const SizedBox(height: 16),
                             Row(
-                              children: const [
-                                Expanded(child: Divider(thickness: .8)),
+                              children: [
+                                const Expanded(child: Divider(thickness: .8)),
                                 Padding(
                                   padding:
-                                      EdgeInsets.symmetric(horizontal: 10),
+                                      const EdgeInsets.symmetric(horizontal: 10),
                                   child: Text(
-                                    'Or sign in with',
-                                    style: TextStyle(color: Colors.black54),
-                                  ),
+  AppLocalizations.of(context)!.orSignInWith,
+  style: const TextStyle(color: Colors.black54),
+),
+
                                 ),
-                                Expanded(child: Divider(thickness: .8)),
+                                const Expanded(child: Divider(thickness: .8)),
                               ],
                             ),
                             const SizedBox(height: 14),
@@ -245,171 +280,186 @@ class _LoginScreenState extends State<LoginScreen> {
         ],
       ),
     );
+    
+    
   }
 
   /* ---------------- Forgot password ---------------- */
 
   void _showForgotPasswordDialog() {
-    final formKey = GlobalKey<FormState>();
-    bool sending = false;
+  final formKey = GlobalKey<FormState>();
+  bool sending = false;
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      barrierColor: Colors.black.withOpacity(.25),
-      builder: (_) {
-        return StatefulBuilder(
-          builder: (ctx, setState) => Dialog(
-            insetPadding: const EdgeInsets.symmetric(horizontal: 24),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                child: Container(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-                  color: Colors.white.withOpacity(0.92),
-                  child: Form(
-                    key: formKey,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text('Reset password',
-                            style: TextStyle(
-                                fontWeight: FontWeight.w700, fontSize: 18)),
-                        const SizedBox(height: 14),
-                        TextFormField(
-                          controller: _forgotEmailCtrl,
-                          keyboardType: TextInputType.emailAddress,
-                          validator: (v) {
-                            final email = v?.trim() ?? '';
-                            final ok = _emailRx.hasMatch(email);
-                            if (email.isEmpty) return 'Email required';
-                            if (!ok) return 'Invalid email';
-                            return null;
-                          },
-                          decoration: InputDecoration(
-                            hintText: 'Your email',
-                            prefixIcon: const Icon(Icons.email_outlined),
-                            filled: true,
-                            fillColor: Colors.white,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    barrierColor: Colors.black.withOpacity(.25),
+    builder: (_) {
+      return StatefulBuilder(
+        builder: (ctx, setState) => Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20)),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                color: Colors.white.withOpacity(0.92),
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        AppLocalizations.of(context)!.resetPassword,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 18),
+                      ),
+                      const SizedBox(height: 14),
+                      TextFormField(
+                        controller: _forgotEmailCtrl,
+                        keyboardType: TextInputType.emailAddress,
+                        validator: (v) {
+                          final email = v?.trim() ?? '';
+                          final ok = _emailRx.hasMatch(email);
+                          if (email.isEmpty) {
+                            return AppLocalizations.of(context)!.emailRequired;
+                          }
+                          if (!ok) {
+                            return AppLocalizations.of(context)!.invalidEmail;
+                          }
+                          return null;
+                        },
+                        decoration: InputDecoration(
+                          hintText: AppLocalizations.of(context)!.yourEmail,
+                          prefixIcon: const Icon(Icons.email_outlined),
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
                           ),
                         ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            TextButton(
-                              onPressed:
-                                  sending ? null : () => Navigator.pop(context),
-                              child: const Text('Cancel'),
-                            ),
-                            const Spacer(),
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFFEE6B33),
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12)),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          TextButton(
+                            onPressed: sending
+                                ? null
+                                : () => Navigator.pop(context),
+                            child: Text(AppLocalizations.of(context)!.cancel),
+                          ),
+                          const Spacer(),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFEE6B33),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                              onPressed: sending
-                                  ? null
-                                  : () async {
-                                      if (!formKey.currentState!.validate()) {
-                                        return;
-                                      }
-                                      setState(() => sending = true);
-
-                                      final email =
-                                          _forgotEmailCtrl.text.trim();
-                                      final vm =
-                                          Provider.of<AuthViewModel>(context,
-                                              listen: false);
-                                      final ok = await vm.requestPasswordReset(
-                                          context, email);
-
-                                      if (!mounted) return;
-                                      if (ok) {
-                                        final nav = Navigator.of(context,
-                                            rootNavigator: true);
-                                        nav.pop(); // fermer 1ère popup
-                                        await Future.delayed(
-                                            const Duration(milliseconds: 50));
-                                        if (!mounted) return;
-                                        _showCodeDialog(email); // ouvrir 2ème
-                                      } else {
-                                        setState(() => sending = false);
-                                      }
-                                    },
-                              child: sending
-                                  ? const SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                          strokeWidth: 2),
-                                    )
-                                  : const Text('Send'),
                             ),
-                          ],
-                        ),
-                      ],
-                    ),
+                            onPressed: sending
+                                ? null
+                                : () async {
+                                    if (!formKey.currentState!.validate()) {
+                                      return;
+                                    }
+                                    setState(() => sending = true);
+
+                                    final email =
+                                        _forgotEmailCtrl.text.trim();
+                                    final vm =
+                                        Provider.of<AuthViewModel>(context,
+                                            listen: false);
+                                    final ok = await vm.requestPasswordReset(
+                                        context, email);
+
+                                    if (!mounted) return;
+                                    if (ok) {
+                                      final nav = Navigator.of(context,
+                                          rootNavigator: true);
+                                      nav.pop(); // fermer 1ère popup
+                                      await Future.delayed(const Duration(
+                                          milliseconds: 50));
+                                      if (!mounted) return;
+                                      _showCodeDialog(email); // ouvrir 2ème
+                                    } else {
+                                      setState(() => sending = false);
+                                    }
+                                  },
+                            child: sending
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
+                                  )
+                                : Text(AppLocalizations.of(context)!.send),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
           ),
-        );
-      },
-    );
-  }
-
-  void _showCodeDialog(String email) {
-    final codeCtrl = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        title: const Text("Entrez le code reçu par email"),
-        content: Form(
-          key: formKey,
-          child: TextFormField(
-            controller: codeCtrl,
-            autofocus: true,
-            validator: (v) =>
-                (v == null || v.trim().isEmpty) ? 'Code requis' : null,
-            decoration: const InputDecoration(
-              hintText: "Code",
-              prefixIcon: Icon(Icons.lock_outline),
-            ),
-            onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
-          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (!formKey.currentState!.validate()) return;
-              final vm =
-                  Provider.of<AuthViewModel>(context, listen: false);
-              await vm.verifyResetCode(
-                  context, email, codeCtrl.text.trim());
-            },
-            child: const Text("Verify"),
-          ),
-        ],
-      ),
-    );
-  }
+      );
+    },
+  );
 }
+
+
+  void _showCodeDialog(String email)
+   {
+  final codeCtrl = TextEditingController();
+  final formKey = GlobalKey<FormState>();
+
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => AlertDialog(
+      title: Text(AppLocalizations.of(context)!.enterCode),
+      content: Form(
+        key: formKey,
+        child: TextFormField(
+          controller: codeCtrl,
+          autofocus: true,
+          validator: (v) => (v == null || v.trim().isEmpty)
+              ? AppLocalizations.of(context)!.codeRequired
+              : null,
+          decoration: InputDecoration(
+            hintText: AppLocalizations.of(context)!.code,
+            prefixIcon: const Icon(Icons.lock_outline),
+          ),
+          onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(AppLocalizations.of(context)!.cancel),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            if (!formKey.currentState!.validate()) return;
+            final vm = Provider.of<AuthViewModel>(context, listen: false);
+            await vm.verifyResetCode(
+              context,
+              email,
+              codeCtrl.text.trim(),
+            );
+          },
+          child: Text(AppLocalizations.of(context)!.verify),
+        ),
+      ],
+    ),
+  );
+}}
+
 
 /* ---------- components ---------- */
 
@@ -653,4 +703,5 @@ class _GlassTab extends StatelessWidget {
       ],
     );
   }
+  
 }

@@ -3,7 +3,8 @@ import 'package:carousel_slider/carousel_slider.dart' as cs;
 import 'package:flutter/material.dart';
 import 'package:frontendemart/models/category_model.dart';
 import 'package:frontendemart/viewmodels/items_viewmodel.dart';
-import 'package:frontendemart/views/homeAdmin/CategoryItemsScreen.dart';
+import 'package:frontendemart/views/Items/product_details_screen.dart';
+import 'package:frontendemart/views/Items/CategoryItemsScreen.dart';
 import 'package:provider/provider.dart';
 import 'package:frontendemart/views/homeAdmin/custom_bottom_navbar.dart';
 
@@ -717,7 +718,8 @@ Widget build(BuildContext context) {
                   child: Container(
                     width: 180,
                     margin: const EdgeInsets.only(right: 16),
-                    child: _buildModernProductCard(item),
+                    child: _buildModernProductCard(context, item),
+
                   ),
                 ),
               );
@@ -728,13 +730,23 @@ Widget build(BuildContext context) {
     );
   }
 
-  Widget _buildModernProductCard(item) {
-    final hasDiscount = item.priceWas != null && item.priceWas > item.price;
-    final discountPercent = hasDiscount
-        ? (((item.priceWas - item.price) / item.priceWas) * 100).round()
-        : 0;
+  Widget _buildModernProductCard(BuildContext context, item) {
+  final hasDiscount = item.priceWas != null && item.priceWas > item.price;
+  final discountPercent = hasDiscount
+      ? (((item.priceWas - item.price) / item.priceWas) * 100).round()
+      : 0;
 
-    return Container(
+  return InkWell(
+    onTap: () {
+      // 👉 Navigation vers la page de détails
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ProductDetailsScreen(item: item),
+        ),
+      );
+    },
+    child: Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -750,6 +762,7 @@ Widget build(BuildContext context) {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // --- Image ---
           Stack(
             children: [
               ClipRRect(
@@ -759,19 +772,17 @@ Widget build(BuildContext context) {
                   width: double.infinity,
                   color: Colors.grey.shade50,
                   child: Image.network(
-  item.photoUrl ?? "https://via.placeholder.com/150",
-  fit: BoxFit.cover,
-  errorBuilder: (context, error, stackTrace) => Container(
-    color: Colors.grey.shade100,
-    child: Icon(
-      Icons.image_not_supported,
-      size: 60,
-      color: Colors.grey.shade400,
-    ),
-  ),
-)
-
-,
+                    item.photoUrl ?? "https://via.placeholder.com/150",
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      color: Colors.grey.shade100,
+                      child: Icon(
+                        Icons.image_not_supported,
+                        size: 60,
+                        color: Colors.grey.shade400,
+                      ),
+                    ),
+                  ),
                 ),
               ),
               if (hasDiscount)
@@ -819,12 +830,15 @@ Widget build(BuildContext context) {
               ),
             ],
           ),
+
+          // --- Infos produit ---
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Nom produit
                   Text(
                     item.nameEn,
                     maxLines: 2,
@@ -835,36 +849,53 @@ Widget build(BuildContext context) {
                       color: Colors.black87,
                     ),
                   ),
-                  const Spacer(),
+                  const SizedBox(height: 6),
+
+                  // ⭐ Avis
                   Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.green.shade50,
-                          borderRadius: BorderRadius.circular(8),
+                      _buildStars(item.avgRating, size: 14),
+                      const SizedBox(width: 4),
+                      Text(
+                        "(${item.totalRatings})",
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
                         ),
-                        child: Text(
-  "${item.price}",   // ✅ affiche la valeur
-  style: TextStyle(
-    fontSize: 16,
-    fontWeight: FontWeight.bold,
-    color: Colors.green.shade700,
-  ),
-),
-
                       ),
-                      if (hasDiscount) ...[
-                        const SizedBox(width: 8),
-                        Text(
-  "${item.priceWas}",
-  style: TextStyle(
-    fontSize: 12,
-    decoration: TextDecoration.lineThrough,
-    color: Colors.grey.shade500,
-  ),
-),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
 
+                  const Spacer(),
+
+                  // 💰 Prix (corrigé pour discount)
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end, // ✅ aligné en bas
+                    children: [
+                      // Prix actuel (vert et grand)
+                      Text(
+                        "${item.price.toStringAsFixed(2)} EGP",
+                        style: TextStyle(
+                          fontSize: hasDiscount ? 20 : 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green.shade700,
+                        ),
+                      ),
+
+                      if (hasDiscount) ...[
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            "${item.priceWas?.toStringAsFixed(2)} EGP",
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 13,
+                              decoration: TextDecoration.lineThrough,
+                              color: Colors.grey.shade500,
+                            ),
+                          ),
+                        ),
                       ]
                     ],
                   ),
@@ -874,15 +905,16 @@ Widget build(BuildContext context) {
           )
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildBrandsRow() {
     final brands = [
-      "logo_BlueTransparent.png",
-      "logo_BlueTransparent.png",
-      "logo_BlueTransparent.png",
-      "logo_BlueTransparent.png",
+      "assets/logo_BlueTransparent.png",
+      "assets/logo_BlueTransparent.png",
+      "assets/logo_BlueTransparent.png",
+      "assets/logo_BlueTransparent.png",
     ];
 
     return SizedBox(
@@ -952,4 +984,21 @@ Widget build(BuildContext context) {
       ),
     );
   }
+  Widget _buildStars(double rating, {double size = 16}) {
+  final filledStars = rating.floor();
+  final halfStar = (rating - filledStars) >= 0.5;
+  final emptyStars = 5 - filledStars - (halfStar ? 1 : 0);
+
+  return Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      for (int i = 0; i < filledStars; i++)
+        Icon(Icons.star, color: Colors.amber, size: size),
+      if (halfStar) Icon(Icons.star_half, color: Colors.amber, size: size),
+      for (int i = 0; i < emptyStars; i++)
+        Icon(Icons.star_border, color: Colors.amber, size: size),
+    ],
+  );
+}
+
 }

@@ -6,8 +6,10 @@ import 'package:http/http.dart' as http;
 
 class ApiService {
 final String baseUrl = ApiConfig.baseUrl;
+
 Future<List<Category>> fetchCategories() async {
-    final uri = Uri.parse("$baseUrl/categories");
+
+    final uri = Uri.parse("$baseUrl/items/categories");
     final response = await http.get(uri, headers: {"Content-Type": "application/json"});
 
     if (response.statusCode == 200) {
@@ -31,7 +33,7 @@ Future<List<SellerItem>> fetchItems({
       if (sort != null && sort.isNotEmpty && sort != "None") "sort": sort,
     };
 
-    final uri = Uri.parse(baseUrl).replace(queryParameters: queryParams);
+  final uri = Uri.parse("$baseUrl/items").replace(queryParameters: queryParams); // ✅ devient /items
 
     print("📡 Appel API → $uri");
 
@@ -51,6 +53,43 @@ Future<List<SellerItem>> fetchItems({
     rethrow;
   }
 }
+// ✅ Récupérer les stats de rating pour un produit
+Future<Map<String, dynamic>> fetchRatings(int sellerItemId) async {
+  final uri = Uri.parse("$baseUrl/items/$sellerItemId/ratings");
+  final response = await http.get(uri, headers: {"Content-Type": "application/json"});
+
+  if (response.statusCode == 200) {
+    return jsonDecode(response.body); // {distribution: [...], recommend: ...}
+  } else {
+    throw Exception("Erreur API fetchRatings: ${response.statusCode}");
+  }
+}
+
+// ✅ Ajouter un rating
+Future<bool> rateProduct(
+  int sellerItemId,
+  int userId,
+  int rating, {
+  String? comment,
+  bool recommend = false,
+}) async {
+  final uri = Uri.parse("$baseUrl/items/$sellerItemId/ratings");
+  final body = jsonEncode({
+    "userId": userId,
+    "rate": rating,
+    "comment": comment,
+    "recommend": recommend,
+  });
+
+  final response = await http.post(
+    uri,
+    headers: {"Content-Type": "application/json"},
+    body: body,
+  );
+
+  return response.statusCode == 200 || response.statusCode == 201;
+}
+
 
   
 }

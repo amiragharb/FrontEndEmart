@@ -5,10 +5,11 @@ import '../services/api_service.dart';
 
 class ItemsViewModel extends ChangeNotifier {
   final ApiService _apiService = ApiService();
-
+  
   List<SellerItem> _items = [];
   List<Category> _categories = [];
   bool _loading = false;
+  bool loading = false;
 
   String? _searchQuery;
   String _categoryFilter = "All";
@@ -17,7 +18,6 @@ class ItemsViewModel extends ChangeNotifier {
   // --- Getters ---
   List<SellerItem> get items => _items;
   List<Category> get categories => _categories;
-  bool get loading => _loading;
   String get selectedCategory => _categoryFilter;
   String get sortOption => _sortOption;
 
@@ -82,8 +82,40 @@ void sortItems(String? sortOption) {
     loadItems(search: _searchQuery, category: _categoryFilter == "All" ? null : _categoryFilter, sort: _sortOption);
   }
 }
+// ⚡ Charger les stats de ratings pour un produit
+Future<Map<String, dynamic>?> loadRatings(int sellerItemId) async {
+  try {
+    final result = await _apiService.fetchRatings(sellerItemId);
+    return result;
+  } catch (e) {
+    debugPrint("❌ Erreur loadRatings: $e");
+    return null;
+  }
+}
 
+// ⚡ Ajouter un rating
+Future<bool> addRating(
+  int sellerItemId,
+  int userId,
+  int rating, {
+  String? comment,
+  bool recommend = false,
+}) async {
+  final success = await _apiService.rateProduct(
+    sellerItemId,
+    userId,
+    rating,
+    comment: comment,
+    recommend: recommend,
+  );
 
+  if (success) {
+    // 🔄 recharge les ratings après ajout
+    await loadRatings(sellerItemId);
+  }
+
+  return success;
+}
 
 
 }
