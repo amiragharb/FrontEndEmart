@@ -1,6 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:frontendemart/models/SellerItem_model.dart';
+import 'package:frontendemart/services/cart_service.dart';
+import 'package:frontendemart/viewmodels/items_viewmodel.dart';
+import 'package:frontendemart/views/Items/ChooseAddressScreen.dart';
+import 'package:frontendemart/views/Items/OrderSummaryScreen.dart';
+import 'package:frontendemart/views/Items/PDFItemViewerScreen.dart';
+import 'package:frontendemart/views/Items/Summary2Screenscreen.dart';
+import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:video_player/video_player.dart';
 import 'package:widget_zoom/widget_zoom.dart';
+import 'package:frontendemart/views/Items/InlineVideoPlayer.dart';
 
 class ProductDetailsScreen extends StatefulWidget {
   final SellerItem item;
@@ -43,17 +53,30 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen>
       duration: const Duration(milliseconds: 800),
       vsync: this,
     );
-    
+
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
     );
-    
+
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, 0.3),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeOut));
-    
+
     _animationController.forward();
+
+    // CORRECTION: Charger toutes les données spécifiques au produit
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final vm = Provider.of<ItemsViewModel>(context, listen: false);
+      
+      // Réinitialiser les données pour éviter l'affichage de données d'un autre produit
+      vm.resetProductData();
+      
+      // Charger les données spécifiques à ce produit
+      vm.loadDatasheets(widget.item.medicineID);
+      vm.loadVideos(widget.item.medicineID);
+      vm.loadRatings(widget.item.sellerItemID);
+    });
   }
 
   @override
@@ -72,59 +95,79 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen>
         slivers: [
           // Header similaire à HomeScreen
           SliverAppBar(
-            expandedHeight: 80,
-            floating: false,
-            pinned: true,
-            elevation: 0,
-            flexibleSpace: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [_primaryColor, _primaryColor.withOpacity(0.8)],
-                ),
-              ),
-            ),
-            leading: Container(
-              margin: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new, 
-                    color: Colors.white, size: 20),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ),
-            title: const Text(
-              "Product Details",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            actions: [
-              Container(
-                margin: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: IconButton(
-                  icon: Icon(
-                    _isFavorite ? Icons.favorite : Icons.favorite_border,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                  onPressed: () {
-                    setState(() => _isFavorite = !_isFavorite);
-                  },
-                ),
-              ),
-            ],
-          ),
+  expandedHeight: 80,
+  floating: false,
+  pinned: true,
+  elevation: 0,
+  flexibleSpace: Container(
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [_primaryColor, _primaryColor.withOpacity(0.8)],
+      ),
+    ),
+  ),
+  leading: Container(
+    margin: const EdgeInsets.all(8),
+    decoration: BoxDecoration(
+      color: Colors.white.withOpacity(0.2),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: IconButton(
+      icon: const Icon(Icons.arrow_back_ios_new, 
+          color: Colors.white, size: 20),
+      onPressed: () => Navigator.pop(context),
+    ),
+  ),
+  title: const Text(
+    "Product Details",
+    style: TextStyle(
+      color: Colors.white,
+      fontSize: 18,
+      fontWeight: FontWeight.bold,
+    ),
+  ),
+  actions: [
+    // 🔹 Favori
+    Container(
+      margin: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: IconButton(
+        icon: Icon(
+          _isFavorite ? Icons.favorite : Icons.favorite_border,
+          color: Colors.white,
+          size: 20,
+        ),
+        onPressed: () {
+          setState(() => _isFavorite = !_isFavorite);
+        },
+      ),
+    ),
+
+    // 🔹 Panier
+    Container(
+      margin: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: IconButton(
+        icon: const Icon(Icons.shopping_cart, color: Colors.white, size: 22),
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const OrderSummaryScreen()),
+          );
+        },
+      ),
+    ),
+  ],
+),
+
 
           SliverToBoxAdapter(
             child: Column(
@@ -160,10 +203,15 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen>
                             children: [
                               const SizedBox(height: 24),
                               _buildProductInfoModern(),
+                              _buildRatingsSection(),
                               const SizedBox(height: 20),
                               _buildPriceSectionModern(),
                               const SizedBox(height: 24),
                               _buildDescriptionModern(),
+                              const SizedBox(height: 24),
+                              _buildDatasheetsSection(),
+                              const SizedBox(height: 24),
+                              _buildVideosSection(),
                               const SizedBox(height: 32),
                               _buildActionButtonsModern(),
                               const SizedBox(height: 32),
@@ -280,14 +328,13 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen>
       },
     );
   }
-
-  Widget _buildProductInfoModern() {
+  
+  Widget _buildDatasheetsSection() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Titre avec style HomeScreen
           Row(
             children: [
               Container(
@@ -302,7 +349,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen>
               ),
               const SizedBox(width: 12),
               const Text(
-                "Product Info",
+                "Datasheets",
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
@@ -311,135 +358,353 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen>
               ),
             ],
           ),
-
           const SizedBox(height: 16),
 
-          Text(
-            widget.item.nameEn,
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-              height: 1.2,
-            ),
+          Consumer<ItemsViewModel>(
+            builder: (context, vm, _) {
+              // CORRECTION: Vérifier si c'est le bon produit
+              if (!vm.isCurrentProduct(widget.item.sellerItemID)) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              if (vm.loading) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              
+              if (vm.datasheets.isEmpty) {
+                return Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      "No datasheet available",
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ),
+                );
+              }
+
+              return Column(
+                children: vm.datasheets.map((ds) {
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: ListTile(
+                      leading: const Icon(Icons.picture_as_pdf, color: Colors.red),
+                      title: Text(ds.fileName),
+                      subtitle: Text(
+                        "Added on ${ds.createdAt.toLocal().toString().split(" ")[0]}",
+                      ),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => PDFViewerScreen(url: ds.fileUrl),
+                          ),
+                        );
+                      },
+                    ),
+                  );
+                }).toList(),
+              );
+            },
           ),
-          
-          const SizedBox(height: 12),
-
-          // Stars avec même style que HomeScreen
-          Row(
-            children: [
-              _buildStars(widget.item.avgRating, size: 18),
-              const SizedBox(width: 8),
-              Text(
-                "(${widget.item.totalRatings} reviews)",
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 16),
-
-          
         ],
       ),
     );
   }
 
-  Widget _buildPriceSectionModern() {
-  final hasDiscount = widget.item.priceWas != null && widget.item.priceWas! > widget.item.price;
-  final discountPercent = hasDiscount
-      ? (((widget.item.priceWas! - widget.item.price) / widget.item.priceWas!) * 100).round()
-      : 0;
-
-  return Container(
-    margin: const EdgeInsets.symmetric(horizontal: 28),
-    padding: const EdgeInsets.all(20),
-    decoration: BoxDecoration(
-      gradient: LinearGradient(
-        colors: [
-          _primaryColor.withOpacity(0.1),
-          _primaryColor.withOpacity(0.05),
-        ],
-      ),
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(
-        color: _primaryColor.withOpacity(0.2),
-      ),
-    ),
-    child: Row(
-      children: [
-        // Partie prix (prend tout l’espace dispo)
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildVideosSection() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Text(
-                "Price",
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
+              Container(
+                width: 4,
+                height: 24,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [_primaryColor, _primaryColor.withOpacity(0.7)],
+                  ),
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Flexible(
-                    child: Text(
-                      "${widget.item.price.toStringAsFixed(2)} EGP",
-                      style: TextStyle(
-                        fontSize: hasDiscount ? 24 : 28,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green.shade700,
-                      ),
-                    ),
-                  ),
-                  if (hasDiscount) ...[
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        "${widget.item.priceWas?.toStringAsFixed(2)} EGP",
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 16,
-                          decoration: TextDecoration.lineThrough,
-                          color: Colors.grey.shade500,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        "-$discountPercent%",
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ]
-                ],
+              const SizedBox(width: 12),
+              const Text(
+                "Videos",
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
               ),
             ],
           ),
+          const SizedBox(height: 16),
+
+          Consumer<ItemsViewModel>(
+            builder: (context, vm, _) {
+              // CORRECTION: Vérifier si c'est le bon produit
+              if (!vm.isCurrentProduct(widget.item.sellerItemID)) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              if (vm.loading) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              
+              if (vm.videos.isEmpty) {
+                return Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      "No videos available",
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ),
+                );
+              }
+
+              return Column(
+                children: vm.videos.map((video) {
+                  final isWmv = video.fileUrl.toLowerCase().endsWith(".wmv");
+
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        AspectRatio(
+                          aspectRatio: 16 / 9,
+                          child: isWmv
+                              ? InkWell(
+                                  onTap: () async {
+                                    final uri = Uri.parse(video.fileUrl);
+                                    if (await canLaunchUrl(uri)) {
+                                      await launchUrl(uri,
+                                          mode: LaunchMode.externalApplication);
+                                    }
+                                  },
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.black12,
+                                      borderRadius: const BorderRadius.vertical(
+                                        top: Radius.circular(12),
+                                      ),
+                                    ),
+                                    child: const Center(
+                                      child: Icon(Icons.play_circle_fill,
+                                          color: Colors.red, size: 64),
+                                    ),
+                                  ),
+                                )
+                              : ClipRRect(
+                                  borderRadius: const BorderRadius.vertical(
+                                    top: Radius.circular(12),
+                                  ),
+                                  child: InlineVideoPlayer(url: video.fileUrl),
+                                ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(12.0),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.video_library,
+                                  color: Colors.deepPurple),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  video.fileName,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.download, color: Colors.blue),
+                                onPressed: () async {
+                                  final uri = Uri.parse(video.fileUrl);
+                                  if (await canLaunchUrl(uri)) {
+                                    await launchUrl(uri,
+                                        mode: LaunchMode.externalApplication);
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProductInfoModern() {
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 28),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Titre section
+        Row(
+          children: [
+            Container(
+              width: 4,
+              height: 24,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [_primaryColor, _primaryColor.withOpacity(0.7)],
+                ),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              "Product Info",
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+          ],
         ),
 
-        // Icône pharmacie (fixe, à droite)
+        const SizedBox(height: 16),
+
+        // Nom du produit
+        Text(
+          widget.item.nameEn,
+          style: const TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+            height: 1.2,
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        // Stars dynamiques par produit
         
+
+        const SizedBox(height: 16),
       ],
     ),
   );
 }
+
+  Widget _buildPriceSectionModern() {
+    final hasDiscount = widget.item.priceWas != null && widget.item.priceWas! > widget.item.price;
+    final discountPercent = hasDiscount
+        ? (((widget.item.priceWas! - widget.item.price) / widget.item.priceWas!) * 100).round()
+        : 0;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 28),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            _primaryColor.withOpacity(0.1),
+            _primaryColor.withOpacity(0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: _primaryColor.withOpacity(0.2),
+        ),
+      ),
+      child: Row(
+        children: [
+          // Partie prix (prend tout l'espace dispo)
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Price",
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        "${widget.item.price.toStringAsFixed(2)} EGP",
+                        style: TextStyle(
+                          fontSize: hasDiscount ? 24 : 28,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green.shade700,
+                        ),
+                      ),
+                    ),
+                    if (hasDiscount) ...[
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          "${widget.item.priceWas?.toStringAsFixed(2)} EGP",
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 16,
+                            decoration: TextDecoration.lineThrough,
+                            color: Colors.grey.shade500,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          "-$discountPercent%",
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ]
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildDescriptionModern() {
     return Padding(
@@ -574,6 +839,203 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen>
     );
   }
 
+  Widget _buildRatingsSection() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 28),
+      child: Consumer<ItemsViewModel>(
+        builder: (context, vm, _) {
+          // CORRECTION: Vérifier si c'est le bon produit
+          if (!vm.isCurrentProduct(widget.item.sellerItemID)) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final avg = vm.averageRating.toStringAsFixed(1);
+          final totalVotes = vm.totalRatings;
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.star, color: Colors.amber, size: 28),
+                  const SizedBox(width: 8),
+                  Text(
+                    "$avg / 5",
+                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(width: 8),
+                  Text("($totalVotes reviews)"),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Distribution des étoiles
+              if (vm.distribution.isNotEmpty)
+                Column(
+                  children: vm.distribution.map((d) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 40,
+                            child: Text("${d["Rate"]} ★"),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: LinearProgressIndicator(
+                              value: totalVotes > 0
+                                  ? (d["total"] / totalVotes)
+                                  : 0,
+                              backgroundColor: Colors.grey[300],
+                              color: Colors.amber,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            width: 30,
+                            child: Text("${d["total"]}", textAlign: TextAlign.end),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+
+              const SizedBox(height: 16),
+              Text("👍 Recommend this product: ${vm.recommendPercent}%"),
+
+              const SizedBox(height: 16),
+
+              ElevatedButton.icon(
+                icon: const Icon(Icons.rate_review, color: Colors.white),
+                label: const Text("Add Review", style: TextStyle(color: Colors.white)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _primaryColor,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed: () {
+                  _showAddRatingDialog(context, widget.item.sellerItemID);
+                },
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showAddRatingDialog(BuildContext context, int sellerItemId) {
+    final vm = Provider.of<ItemsViewModel>(context, listen: false);
+    int selectedRating = 5;
+    String comment = "";
+    bool recommend = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setStateDialog) {
+            return AlertDialog(
+              title: const Text("Add Review"),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Star selection
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(5, (index) {
+                      return IconButton(
+                        icon: Icon(
+                          index < selectedRating
+                              ? Icons.star
+                              : Icons.star_border,
+                          color: Colors.amber,
+                        ),
+                        onPressed: () {
+                          setStateDialog(() {
+                            selectedRating = index + 1;
+                          });
+                        },
+                      );
+                    }),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Comment field
+                  TextField(
+                    decoration: const InputDecoration(
+                      hintText: "Your comment (optional)",
+                      border: OutlineInputBorder(),
+                    ),
+                    maxLines: 3,
+                    onChanged: (val) => comment = val,
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Recommendation checkbox
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: recommend,
+                        onChanged: (val) {
+                          setStateDialog(() {
+                            recommend = val ?? false;
+                          });
+                        },
+                      ),
+                      const Expanded(
+                        child: Text("I recommend this product"),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  child: const Text("Cancel"),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _primaryColor,
+                  ),
+                  child: const Text("Submit", style: TextStyle(color: Colors.white)),
+                  onPressed: () async {
+                    final success = await vm.addRating(
+                      sellerItemId,
+                      1, // TODO: Replace with actual user ID
+                      selectedRating,
+                      comment: comment.isNotEmpty ? comment : null,
+                      recommend: recommend,
+                    );
+
+                    Navigator.pop(ctx);
+
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(success
+                              ? "Review added successfully!"
+                              : "Error adding review"),
+                          backgroundColor: success ? Colors.green : Colors.red,
+                        ),
+                      );
+                    }
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildActionButtonsModern() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -643,20 +1105,29 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen>
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                onPressed: () {
-                  // Animation de feedback comme HomeScreen
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: const Text("Product added to cart!"),
-                      backgroundColor: _primaryColor,
-                      behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      duration: const Duration(milliseconds: 1500),
-                    ),
-                  );
-                },
+              onPressed: () async 
+              {
+  final selectedAddress = await Navigator.push(
+    context,
+    MaterialPageRoute(builder: (_) => const ChooseAddressScreen()),
+  );
+
+  if (selectedAddress != null) {
+    final items = await CartService.getCartItems();
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => Summary2Screen(
+          items: items,
+          selectedAddress: selectedAddress,
+        ),
+      ),
+    );
+  }
+},
+
+
+
               ),
             ),
           ),
@@ -665,20 +1136,5 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen>
     );
   }
 
-  Widget _buildStars(double rating, {double size = 18}) {
-    final filledStars = rating.floor();
-    final halfStar = (rating - filledStars) >= 0.5;
-    final emptyStars = 5 - filledStars - (halfStar ? 1 : 0);
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (int i = 0; i < filledStars; i++)
-          Icon(Icons.star, color: Colors.amber, size: size),
-        if (halfStar) Icon(Icons.star_half, color: Colors.amber, size: size),
-        for (int i = 0; i < emptyStars; i++)
-          Icon(Icons.star_border, color: Colors.amber, size: size),
-      ],
-    );
-  }
+  
 }

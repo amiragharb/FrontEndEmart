@@ -10,19 +10,18 @@ class SellerItem {
   final String nameAr;
   final String? photoUrl;
 
-  // ⭐ Champs pour les évaluations
   final double avgRating;
   final int totalRatings;
 
-  // 📝 Champs de description
   final String? indications;
   final String? pamphletEn;
   final String? pamphletAr;
   final String? packDescription;
   final String? youtubeURL;
 
-  // 🖼️ Liste complète des photos
   final List<String> imageUrls;
+
+  int qty; // ✅ quantité
 
   SellerItem({
     required this.sellerItemID,
@@ -43,11 +42,11 @@ class SellerItem {
     this.packDescription,
     this.youtubeURL,
     this.imageUrls = const [],
+    this.qty = 1, // ✅ par défaut
   });
 
   factory SellerItem.fromJson(Map<String, dynamic> json) {
     String? finalUrl = json['photoUrl'];
-
     if (finalUrl != null) {
       finalUrl = finalUrl.replaceAll(" ", "%20");
     }
@@ -65,16 +64,37 @@ class SellerItem {
       photoUrl: finalUrl,
       avgRating: (json['AvgRating'] ?? 0).toDouble(),
       totalRatings: json['TotalRatings'] ?? 0,
-
-      // 📝 Champs description
       indications: json['Indications'],
       pamphletEn: json['PamphletEn'],
       pamphletAr: json['PamphletAr'],
       packDescription: json['PackDescription'],
       youtubeURL: json['YoutubeURL'],
-
-      // 🖼️ Liste d'images
       imageUrls: (json['imageUrls'] as List?)?.map((e) => e.toString()).toList() ?? [],
+      qty: json['Qty'] ?? 1, // ✅ récupération quantité
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'SellerItemID': sellerItemID,
+      'MedicineID': medicineID,
+      'SellerID': sellerID,
+      'StockQuantity': stockQuantity,
+      'Price': price,
+      'PriceWas': priceWas,
+      'IsOutOfStock': isOutOfStock,
+      'NameEn': nameEn,
+      'NameAr': nameAr,
+      'photoUrl': photoUrl,
+      'AvgRating': avgRating,
+      'TotalRatings': totalRatings,
+      'Indications': indications,
+      'PamphletEn': pamphletEn,
+      'PamphletAr': pamphletAr,
+      'PackDescription': packDescription,
+      'YoutubeURL': youtubeURL,
+      'imageUrls': imageUrls,
+      'Qty': qty, // ✅ sauvegarde quantité
+    };
   }
 }

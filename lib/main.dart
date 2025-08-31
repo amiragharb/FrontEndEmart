@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:frontendemart/change_langue/change_language.dart';
 import 'package:frontendemart/l10n/app_localizations.dart';
 import 'package:frontendemart/viewmodels/auth_viewmodel.dart';
+import 'package:frontendemart/viewmodels/items_viewmodel.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'routes/routes.dart';
@@ -15,6 +16,8 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthViewModel()),
         ChangeNotifierProvider(create: (_) => LocaleProvider()), // ✅
+       ChangeNotifierProvider(create: (_) => ItemsViewModel()), // ✅ global ici
+
       ],
       child: const MyApp(),
     ),
