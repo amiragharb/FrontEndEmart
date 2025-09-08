@@ -86,6 +86,7 @@ Widget build(BuildContext context) {
       bottomNavigationBar: const CustomBottomNavBar(currentIndex: 0),
     ),
   );
+  
 }
 
   /// ------------------------

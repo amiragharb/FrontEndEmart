@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:frontendemart/l10n/app_localizations.dart';
 import 'package:frontendemart/views/homeAdmin/home_screen.dart';
 import 'package:frontendemart/views/profile/profile_screen.dart';
 
@@ -47,13 +48,16 @@ class CustomBottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const items = [
-      _NavItem(Icons.home_outlined, 'Home'),
-      _NavItem(Icons.discount_outlined, 'Promo'),
-      _NavItem(Icons.shopping_bag_outlined, 'Shop'),
-      _NavItem(Icons.storefront_outlined, 'Stores'),
-      _NavItem(Icons.person_outline, 'Profile'),
-    ];
+    final l10n = AppLocalizations.of(context)!;
+
+final items = [
+  _NavItem(Icons.home_outlined, l10n.navHome),
+  _NavItem(Icons.discount_outlined, l10n.navPromo),
+  _NavItem(Icons.shopping_bag_outlined, l10n.navShop),
+  _NavItem(Icons.storefront_outlined, l10n.navStores),
+  _NavItem(Icons.person_outline, l10n.navProfile),
+];
+
 
     final idx = currentIndex.clamp(0, items.length - 1);
 

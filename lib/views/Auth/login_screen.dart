@@ -43,7 +43,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Stack(
+
+      body: Stack
+      (
         children: [
           // background
           Container(
@@ -67,7 +69,70 @@ class _LoginScreenState extends State<LoginScreen> {
             child:
                 _Blob(color: const Color(0xFF2E64C5).withOpacity(.18), size: 240),
           ),
+         const SizedBox(height: 16),
+SafeArea(
+  child:Align(
+  alignment: Alignment.topRight,
+  child: Padding(
+    padding: const EdgeInsets.all(16.0),
+    child: Consumer<LocaleProvider>(
+      builder: (context, localeProvider, _) {
+        return PopupMenuButton<Locale>(
+          onSelected: (locale) {
+            localeProvider.setLocale(locale);
+          },
+          tooltip: "Change language",
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          itemBuilder: (context) => [
+            PopupMenuItem(
+              value: const Locale('en'),
+              child: Row(
+                children: [
+                  const Text("🇺🇸 "), // flag emoji
+                  const SizedBox(width: 8),
+                  const Text("English"),
+                ],
+              ),
+            ),
+            PopupMenuItem(
+              value: const Locale('ar'),
+              child: Row(
+                children: [
+                  const Text("🇪🇬 "), // flag emoji
+                  const SizedBox(width: 8),
+                  const Text("العربية"),
+                ],
+              ),
+            ),
+          ],
+          child: Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: const Color(0xFFEE6B33),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.15),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.language, // globe icon
+              color: Colors.white,
+            ),
+          ),
+        );
+      },
+    ),
+  ),
+),
 
+),
           SafeArea(
             child: Center(
               child: SingleChildScrollView
@@ -82,40 +147,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       image: AssetImage('assets/logo_BlueTransparent.png'),
                       height: 120,
                     ),
-                    const SizedBox(height: 16),
-Consumer<LocaleProvider>(
-  builder: (context, localeProvider, _) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        ElevatedButton(
-          onPressed: () {
-            localeProvider.setLocale(const Locale('en'));
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: localeProvider.locale?.languageCode == 'en'
-                ? const Color(0xFFEE6B33)
-                : Colors.grey[300],
-          ),
-          child: const Text("EN"),
-        ),
-        const SizedBox(width: 12),
-        ElevatedButton(
-          onPressed: () {
-            localeProvider.setLocale(const Locale('ar'));
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: localeProvider.locale?.languageCode == 'ar'
-                ? const Color(0xFFEE6B33)
-                : Colors.grey[300],
-          ),
-          child: const Text("AR"),
-        ),
-      ],
-    );
-  },
-),
-                    // GLASS CARD
+                    
+         // GLASS CARD
                     _GlassCard(
                       width: screen.width * .9,
                       padding: const EdgeInsets.fromLTRB(22, 22, 22, 26),

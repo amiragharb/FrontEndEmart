@@ -98,7 +98,7 @@ abstract class AppLocalizations {
   /// No description provided for @appTitle.
   ///
   /// In en, this message translates to:
-  /// **'eMart'**
+  /// **'E-Mart'**
   String get appTitle;
 
   /// No description provided for @login.
@@ -214,6 +214,114 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Code is required'**
   String get codeRequired;
+
+  /// No description provided for @fullName.
+  ///
+  /// In en, this message translates to:
+  /// **'Full name and username'**
+  String get fullName;
+
+  /// No description provided for @email.
+  ///
+  /// In en, this message translates to:
+  /// **'Email'**
+  String get email;
+
+  /// No description provided for @phoneNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone Number'**
+  String get phoneNumber;
+
+  /// No description provided for @rePassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Re-enter Password'**
+  String get rePassword;
+
+  /// No description provided for @dob.
+  ///
+  /// In en, this message translates to:
+  /// **'Date of Birth'**
+  String get dob;
+
+  /// No description provided for @signUpBtn.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign Up'**
+  String get signUpBtn;
+
+  /// No description provided for @alreadyAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Already have an account?'**
+  String get alreadyAccount;
+
+  /// No description provided for @enterFullName.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter first and last name'**
+  String get enterFullName;
+
+  /// No description provided for @passwordMismatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Passwords do not match'**
+  String get passwordMismatch;
+
+  /// No description provided for @selectDob.
+  ///
+  /// In en, this message translates to:
+  /// **'Please select your date of birth'**
+  String get selectDob;
+
+  /// No description provided for @validPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter a valid phone number'**
+  String get validPhone;
+
+  /// No description provided for @validEgyptPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter a valid Egyptian phone number'**
+  String get validEgyptPhone;
+
+  /// No description provided for @searchCountry.
+  ///
+  /// In en, this message translates to:
+  /// **'Search country'**
+  String get searchCountry;
+
+  /// No description provided for @navHome.
+  ///
+  /// In en, this message translates to:
+  /// **'Home'**
+  String get navHome;
+
+  /// No description provided for @navPromo.
+  ///
+  /// In en, this message translates to:
+  /// **'Promo'**
+  String get navPromo;
+
+  /// No description provided for @navShop.
+  ///
+  /// In en, this message translates to:
+  /// **'Shop'**
+  String get navShop;
+
+  /// No description provided for @navStores.
+  ///
+  /// In en, this message translates to:
+  /// **'Stores'**
+  String get navStores;
+
+  /// No description provided for @navProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get navProfile;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

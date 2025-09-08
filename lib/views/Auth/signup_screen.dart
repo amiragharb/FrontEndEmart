@@ -1,8 +1,10 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:frontendemart/change_langue/change_language.dart';
 import 'package:intl/intl.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:provider/provider.dart';
+import 'package:frontendemart/l10n/app_localizations.dart';
 
 import 'login_screen.dart';
 import 'package:frontendemart/models/user_model.dart';
@@ -58,274 +60,337 @@ class _SignUpScreenState extends State<SignUpScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final formattedDate = selectedDate != null
-        ? DateFormat('yyyy-MM-dd').format(selectedDate!)
-        : 'Date of Birth';
+Widget build(BuildContext context) {
+  final loc = AppLocalizations.of(context)!;
+  final formattedDate = selectedDate != null
+      ? DateFormat('yyyy-MM-dd').format(selectedDate!)
+      : loc.dob;
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Stack(
-        children: [
-          // fond
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFFFFEFE6), Color(0xFFFDE2D6)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+  return Scaffold
+(
+    backgroundColor: Colors.white,
+    body: Stack(
+  children: [
+    // fond
+    Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFFFFEFE6), Color(0xFFFDE2D6)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+    ),
+
+    // blobs décoratifs
+    Positioned(
+      top: -80,
+      left: -40,
+      child: _Blob(color: const Color(0xFFFFA26B).withOpacity(.25), size: 220),
+    ),
+    Positioned(
+      bottom: -60,
+      right: -30,
+      child: _Blob(color: const Color(0xFF2E64C5).withOpacity(.18), size: 240),
+    ),
+    
+         const SizedBox(height: 16),
+
+    // 🌐 bouton langue en haut à droite
+    Positioned(
+      top: 16,
+      right: 16,
+      child: Consumer<LocaleProvider>(
+        builder: (context, localeProvider, _) {
+          return PopupMenuButton<Locale>(
+            onSelected: (locale) {
+              localeProvider.setLocale(locale);
+            },
+            tooltip: "Change language",
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
             ),
-          ),
-          // blobs décoratifs
-          Positioned(
-            top: -80,
-            left: -40,
-            child:
-                _Blob(color: const Color(0xFFFFA26B).withOpacity(.25), size: 220),
-          ),
-          Positioned(
-            bottom: -60,
-            right: -30,
-            child:
-                _Blob(color: const Color(0xFF2E64C5).withOpacity(.18), size: 240),
-          ),
-
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-              child: Column(
-                children: [
-                  const SizedBox(height: 8),
-                  const Image(
-                    image: AssetImage('assets/logo_BlueTransparent.png'),
-                    height: 110,
-                  ),
-                  const SizedBox(height: 16),
-
-                  // carte verre
-                  _GlassCard(
-                    padding: const EdgeInsets.fromLTRB(22, 22, 22, 26),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        children: [
-                          // tabs
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              GestureDetector(
-                                onTap: () {
-                                  Navigator.pushReplacement(
-                                    context,
-                                    MaterialPageRoute(
-                                        builder: (_) => const LoginScreen()),
-                                  );
-                                },
-                                child: const Text(
-                                  'Login',
-                                  style: TextStyle(
-                                      fontSize: 16, color: Colors.black87),
-                                ),
-                              ),
-                              const SizedBox(width: 20),
-                              const _GlassTab(
-                                label: 'Sign-up',
-                                isActive: true,
-                                underlineColor: Color(0xFFEE6B33),
-                              ),
-                            ],
-                          ),
-
-                          const SizedBox(height: 22),
-                          _GlassTextField(
-                            controller: fullNameController,
-                            hint: 'Full name and username',
-                            icon: Icons.person,
-                            // ✅ oblige prénom + nom
-                            validator: (v) {
-                              final text = (v ?? '').trim();
-                              if (text.isEmpty) return 'Required field';
-                              if (!RegExp(r'^\S+\s+\S+').hasMatch(text)) {
-                                return 'Please enter first and last name';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          _GlassTextField(
-                            controller: emailController,
-                            hint: 'Email',
-                            icon: Icons.email,
-                            keyboardType: TextInputType.emailAddress,
-                            validator: _required,
-                          ),
-                          const SizedBox(height: 12),
-
-                          // téléphone (Égypte)
-                          _GlassPhoneField(
-                            controller: phoneController,
-                            onChanged: (v) =>
-                                setState(() => completePhoneNumber = v),
-                          ),
-                          const SizedBox(height: 12),
-
-                          _GlassTextField(
-                            controller: passwordController,
-                            hint: 'Password',
-                            icon: Icons.lock,
-                            obscure: _obscurePassword,
-                            validator: _required,
-                            trailing: IconButton(
-                              icon: Icon(
-                                _obscurePassword
-                                    ? Icons.visibility
-                                    : Icons.visibility_off,
-                                color: Colors.black87,
-                              ),
-                              onPressed: () => setState(
-                                  () => _obscurePassword = !_obscurePassword),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          _GlassTextField(
-                            controller: confirmPasswordController,
-                            hint: 'Re-enter Password',
-                            icon: Icons.lock_outline,
-                            obscure: _obscureConfirm,
-                            validator: (v) {
-                              if (v == null || v.trim().isEmpty) {
-                                return 'Required field';
-                              }
-                              if (v != passwordController.text) {
-                                return 'Passwords do not match';
-                              }
-                              return null;
-                            },
-                            trailing: IconButton(
-                              icon: Icon(
-                                _obscureConfirm
-                                    ? Icons.visibility
-                                    : Icons.visibility_off,
-                                color: Colors.black87,
-                              ),
-                              onPressed: () => setState(
-                                  () => _obscureConfirm = !_obscureConfirm),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-
-                          // date
-                          _GlassTappable(
-                            onTap: () => _pickDate(context),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.calendar_month,
-                                    color: Colors.black87),
-                                const SizedBox(width: 12),
-                                Text(formattedDate,
-                                    style: const TextStyle(fontSize: 16)),
-                              ],
-                            ),
-                          ),
-
-                          const SizedBox(height: 22),
-                          _GlassButton(
-                            label: 'Sign Up',
-                            color: const Color(0xFFEE6B33),
-                            onPressed: () {
-                              if (_formKey.currentState!.validate()) {
-                                if (selectedDate == null) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                          'Please select your date of birth'),
-                                    ),
-                                  );
-                                  return;
-                                }
-                                if (completePhoneNumber == null ||
-                                    completePhoneNumber!.isEmpty) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                          'Please enter a valid phone number'),
-                                    ),
-                                  );
-                                  return;
-                                }
-
-                                // ✅ Vérification numéro égyptien: +20/0 + (10|11|12|15) + 8 chiffres
-                                final egyptianRegex =
-                                    RegExp(r'^(?:\+20|0)(10|11|12|15)\d{8}$');
-                                if (!egyptianRegex
-                                    .hasMatch(completePhoneNumber!)) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                          'Please enter a valid Egyptian phone number'),
-                                    ),
-                                  );
-                                  return;
-                                }
-
-                                // split full name
-                                final parts =
-                                    _splitName(fullNameController.text);
-
-                                // payload aligné au backend
-                                final user = UserModel(
-                                  email: emailController.text.trim(),
-                                  password: passwordController.text.trim(),
-                                  firstName: parts['first'] ?? '',
-                                  lastName: parts['last'] ?? '',
-                                  mobile: completePhoneNumber!,
-                                  dateOfBirth: DateFormat('yyyy-MM-dd')
-                                      .format(selectedDate!),
-                                );
-
-                                Provider.of<AuthViewModel>(context,
-                                        listen: false)
-                                    .signup(user, context);
-                              }
-                            },
-                          ),
-
-                          const SizedBox(height: 16),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Text("Already have an account? "),
-                              GestureDetector(
-                                onTap: () {
-                                  Navigator.pushReplacement(
-                                    context,
-                                    MaterialPageRoute(
-                                        builder: (_) => const LoginScreen()),
-                                  );
-                                },
-                                child: const Text(
-                                  "Login",
-                                  style: TextStyle(
-                                    color: Color(0xFFEE6B33),
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: Locale('en'),
+                child: Row(
+                  children: [
+                    Text("🇺🇸 "),
+                    SizedBox(width: 8),
+                    Text("English"),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: Locale('ar'),
+                child: Row(
+                  children: [
+                    Text("🇪🇬 "),
+                    SizedBox(width: 8),
+                    Text("العربية"),
+                  ],
+                ),
+              ),
+            ],
+            child: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: const Color(0xFFEE6B33),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.15),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
                   ),
                 ],
               ),
+              child: const Icon(
+                Icons.language,
+                color: Colors.white,
+              ),
+            ),
+          );
+        },
+      ),
+    ),
+         const SizedBox(height: 16),
+
+ 
+        SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            child: Column(
+              children: [
+                const SizedBox(height: 8),
+                const Image(
+                  image: AssetImage('assets/logo_BlueTransparent.png'),
+                  height: 110,
+                ),
+                const SizedBox(height: 16),
+
+                // carte verre
+                _GlassCard(
+                  padding: const EdgeInsets.fromLTRB(22, 22, 22, 26),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      children: [
+                        // tabs
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) => const LoginScreen()),
+                                );
+                              },
+                              child: Text(
+                                loc.login,
+                                style: const TextStyle(
+                                    fontSize: 16, color: Colors.black87),
+                              ),
+                            ),
+                            const SizedBox(width: 20),
+                            _GlassTab(
+                              label: loc.signup,
+                              isActive: true,
+                              underlineColor: const Color(0xFFEE6B33),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 22),
+                        _GlassTextField(
+                          controller: fullNameController,
+                          hint: loc.fullName,
+                          icon: Icons.person,
+                          validator: (v) {
+                            final text = (v ?? '').trim();
+                            if (text.isEmpty) return loc.requiredField;
+                            if (!RegExp(r'^\S+\s+\S+').hasMatch(text)) {
+                              return loc.enterFullName;
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        _GlassTextField(
+                          controller: emailController,
+                          hint: loc.email,
+                          icon: Icons.email,
+                          keyboardType: TextInputType.emailAddress,
+                          validator: _required,
+                        ),
+                        const SizedBox(height: 12),
+
+                       _GlassPhoneField(
+  controller: phoneController,
+  onChanged: (v) => setState(() => completePhoneNumber = v),
+  hint: loc.phoneNumber, // ✅ on injecte la traduction ici
+),
+
+                        const SizedBox(height: 12),
+
+                        _GlassTextField(
+                          controller: passwordController,
+                          hint: loc.password,
+                          icon: Icons.lock,
+                          obscure: _obscurePassword,
+                          validator: _required,
+                          trailing: IconButton(
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility
+                                  : Icons.visibility_off,
+                              color: Colors.black87,
+                            ),
+                            onPressed: () => setState(
+                                () => _obscurePassword = !_obscurePassword),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _GlassTextField(
+                          controller: confirmPasswordController,
+                          hint: loc.rePassword,
+                          icon: Icons.lock_outline,
+                          obscure: _obscureConfirm,
+                          validator: (v) {
+                            if (v == null || v.trim().isEmpty) {
+                              return loc.requiredField;
+                            }
+                            if (v != passwordController.text) {
+                              return loc.passwordMismatch;
+                            }
+                            return null;
+                          },
+                          trailing: IconButton(
+                            icon: Icon(
+                              _obscureConfirm
+                                  ? Icons.visibility
+                                  : Icons.visibility_off,
+                              color: Colors.black87,
+                            ),
+                            onPressed: () =>
+                                setState(() => _obscureConfirm = !_obscureConfirm),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // date
+                        _GlassTappable(
+                          onTap: () => _pickDate(context),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.calendar_month,
+                                  color: Colors.black87),
+                              const SizedBox(width: 12),
+                              Text(formattedDate,
+                                  style: const TextStyle(fontSize: 16)),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 22),
+                        _GlassButton(
+                          label: loc.signUpBtn,
+                          color: const Color(0xFFEE6B33),
+                          onPressed: () {
+                            if (_formKey.currentState!.validate()) {
+                              if (selectedDate == null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(loc.selectDob)),
+                                );
+                                return;
+                              }
+                              if (completePhoneNumber == null ||
+                                  completePhoneNumber!.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(loc.validPhone)),
+                                );
+                                return;
+                              }
+
+                              // Vérifier le pays choisi
+final isEgypt = completePhoneNumber!.startsWith('+20');
+
+if (isEgypt) {
+  final egyptianRegex = RegExp(r'^(?:\+20|0)(10|11|12|15)\d{8}$');
+  if (!egyptianRegex.hasMatch(completePhoneNumber!)) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(loc.validEgyptPhone)),
+    );
+    return;
+  }
+} else {
+  // ✅ pour les autres pays, juste vérifier que le champ n’est pas vide
+  if (completePhoneNumber!.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(loc.validPhone)),
+    );
+    return;
+  }
+}
+
+                              final parts = _splitName(fullNameController.text);
+
+                              final user = UserModel(
+                                email: emailController.text.trim(),
+                                password: passwordController.text.trim(),
+                                firstName: parts['first'] ?? '',
+                                lastName: parts['last'] ?? '',
+                                mobile: completePhoneNumber!,
+                                dateOfBirth: DateFormat('yyyy-MM-dd')
+                                    .format(selectedDate!),
+                              );
+
+                              Provider.of<AuthViewModel>(context,
+                                      listen: false)
+                                  .signup(user, context);
+                            }
+                          },
+                        ),
+
+                        const SizedBox(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text("${loc.alreadyAccount} "),
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) => const LoginScreen()),
+                                );
+                              },
+                              child: Text(
+                                loc.login,
+                                style: const TextStyle(
+                                  color: Color(0xFFEE6B33),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
+
 
   String? _required(String? v) =>
       v == null || v.trim().isEmpty ? 'Required field' : null;
@@ -422,16 +487,22 @@ class _GlassTextField extends StatelessWidget {
   }
 }
 
+
 class _GlassPhoneField extends StatelessWidget {
   final TextEditingController controller;
   final void Function(String completeNumber) onChanged;
+  final String hint;
+
   const _GlassPhoneField({
     required this.controller,
     required this.onChanged,
+    required this.hint,
   });
 
   @override
   Widget build(BuildContext context) {
+    final textDirection = Directionality.of(context);
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(18),
       child: BackdropFilter(
@@ -446,14 +517,18 @@ class _GlassPhoneField extends StatelessWidget {
           child: IntlPhoneField(
             controller: controller,
             initialCountryCode: 'EG',   // 🇪🇬 Égypte par défaut
-            showDropdownIcon: false,    // cache l’icône du menu
-            disableLengthCheck: true,   // validation personnalisée
-            decoration: const InputDecoration(
+            showDropdownIcon: true,
+            disableLengthCheck: true,
+            searchText: AppLocalizations.of(context)!.searchCountry,
+            decoration: InputDecoration(
               border: InputBorder.none,
-              hintText: 'Phone Number',
-              prefixIcon: Icon(Icons.phone, color: Colors.black87),
-              contentPadding:
-                  EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              hintText: hint,
+              hintStyle: const TextStyle(fontSize: 16),
+              hintTextDirection: textDirection, // ✅ RTL si arabe, LTR si anglais
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 14,
+              ),
             ),
             onChanged: (phone) => onChanged(phone.completeNumber),
           ),
@@ -462,6 +537,7 @@ class _GlassPhoneField extends StatelessWidget {
     );
   }
 }
+
 
 class _GlassTappable extends StatelessWidget {
   final VoidCallback onTap;

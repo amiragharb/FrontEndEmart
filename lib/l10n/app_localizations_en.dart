@@ -9,7 +9,7 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
-  String get appTitle => 'eMart';
+  String get appTitle => 'E-Mart';
 
   @override
   String get login => 'Login';
@@ -67,4 +67,58 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get codeRequired => 'Code is required';
+
+  @override
+  String get fullName => 'Full name and username';
+
+  @override
+  String get email => 'Email';
+
+  @override
+  String get phoneNumber => 'Phone Number';
+
+  @override
+  String get rePassword => 'Re-enter Password';
+
+  @override
+  String get dob => 'Date of Birth';
+
+  @override
+  String get signUpBtn => 'Sign Up';
+
+  @override
+  String get alreadyAccount => 'Already have an account?';
+
+  @override
+  String get enterFullName => 'Please enter first and last name';
+
+  @override
+  String get passwordMismatch => 'Passwords do not match';
+
+  @override
+  String get selectDob => 'Please select your date of birth';
+
+  @override
+  String get validPhone => 'Please enter a valid phone number';
+
+  @override
+  String get validEgyptPhone => 'Please enter a valid Egyptian phone number';
+
+  @override
+  String get searchCountry => 'Search country';
+
+  @override
+  String get navHome => 'Home';
+
+  @override
+  String get navPromo => 'Promo';
+
+  @override
+  String get navShop => 'Shop';
+
+  @override
+  String get navStores => 'Stores';
+
+  @override
+  String get navProfile => 'Profile';
 }

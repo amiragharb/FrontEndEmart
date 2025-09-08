@@ -9,7 +9,7 @@ class AppLocalizationsAr extends AppLocalizations {
   AppLocalizationsAr([String locale = 'ar']) : super(locale);
 
   @override
-  String get appTitle => 'إي مارت';
+  String get appTitle => 'إي-مارت';
 
   @override
   String get login => 'تسجيل الدخول';
@@ -51,7 +51,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get verify => 'تحقق';
 
   @override
-  String get requiredField => 'حقل مطلوب';
+  String get requiredField => 'هذا الحقل مطلوب';
 
   @override
   String get invalidEmailOrPhone => 'أدخل بريداً صحيحاً أو هاتفاً مصرياً صحيحاً';
@@ -67,4 +67,58 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get codeRequired => 'الرمز مطلوب';
+
+  @override
+  String get fullName => 'الاسم الكامل واسم المستخدم';
+
+  @override
+  String get email => 'البريد الإلكتروني';
+
+  @override
+  String get phoneNumber => 'رقم الهاتف';
+
+  @override
+  String get rePassword => 'أعد إدخال كلمة المرور';
+
+  @override
+  String get dob => 'تاريخ الميلاد';
+
+  @override
+  String get signUpBtn => 'تسجيل';
+
+  @override
+  String get alreadyAccount => 'لديك حساب بالفعل؟';
+
+  @override
+  String get enterFullName => 'يرجى إدخال الاسم الأول واسم العائلة';
+
+  @override
+  String get passwordMismatch => 'كلمتا المرور غير متطابقتين';
+
+  @override
+  String get selectDob => 'يرجى اختيار تاريخ الميلاد';
+
+  @override
+  String get validPhone => 'يرجى إدخال رقم هاتف صالح';
+
+  @override
+  String get validEgyptPhone => 'يرجى إدخال رقم هاتف مصري صحيح';
+
+  @override
+  String get searchCountry => 'ابحث عن الدولة';
+
+  @override
+  String get navHome => 'الرئيسية';
+
+  @override
+  String get navPromo => 'العروض';
+
+  @override
+  String get navShop => 'المتجر';
+
+  @override
+  String get navStores => 'المحلات';
+
+  @override
+  String get navProfile => 'الملف الشخصي';
 }
