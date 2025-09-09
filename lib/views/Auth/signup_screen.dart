@@ -4,7 +4,7 @@ import 'package:frontendemart/change_langue/change_language.dart';
 import 'package:intl/intl.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:provider/provider.dart';
-import 'package:frontendemart/l10n/app_localizations.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 import 'login_screen.dart';
 import 'package:frontendemart/models/user_model.dart';
@@ -61,10 +61,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   @override
 Widget build(BuildContext context) {
-  final loc = AppLocalizations.of(context)!;
+  // Listen to locale to force rebuild on language change
+  final _ = context.locale;
   final formattedDate = selectedDate != null
       ? DateFormat('yyyy-MM-dd').format(selectedDate!)
-      : loc.dob;
+      : 'dob'.tr();
 
   return Scaffold
 (
@@ -94,65 +95,70 @@ Widget build(BuildContext context) {
       child: _Blob(color: const Color(0xFF2E64C5).withOpacity(.18), size: 240),
     ),
     
-         const SizedBox(height: 16),
+         // Removed SizedBox to ensure language switcher is clickable
 
     // 🌐 bouton langue en haut à droite
     Positioned(
       top: 16,
       right: 16,
-      child: Consumer<LocaleProvider>(
-        builder: (context, localeProvider, _) {
-          return PopupMenuButton<Locale>(
-            onSelected: (locale) {
-              localeProvider.setLocale(locale);
-            },
-            tooltip: "Change language",
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: Locale('en'),
-                child: Row(
-                  children: [
-                    Text("🇺🇸 "),
-                    SizedBox(width: 8),
-                    Text("English"),
-                  ],
-                ),
+      child: Material(
+        color: Colors.transparent,
+        shape: const CircleBorder(),
+        child: Consumer<LocaleProvider>(
+          builder: (context, localeProvider, _) {
+            return PopupMenuButton<Locale>(
+              onSelected: (locale) async {
+                await EasyLocalization.of(context)!.setLocale(locale);
+                localeProvider.setLocale(locale);
+              },
+              tooltip: 'change_language'.tr(),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
               ),
-              const PopupMenuItem(
-                value: Locale('ar'),
-                child: Row(
-                  children: [
-                    Text("🇪🇬 "),
-                    SizedBox(width: 8),
-                    Text("العربية"),
-                  ],
-                ),
-              ),
-            ],
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: const Color(0xFFEE6B33),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.15),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: Locale('en'),
+                  child: Row(
+                    children: [
+                      Text("🇺🇸 "),
+                      SizedBox(width: 8),
+                      Text("English"),
+                    ],
                   ),
-                ],
+                ),
+                const PopupMenuItem(
+                  value: Locale('ar'),
+                  child: Row(
+                    children: [
+                      Text("🇪🇬 "),
+                      SizedBox(width: 8),
+                      Text("العربية"),
+                    ],
+                  ),
+                ),
+              ],
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEE6B33),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.15),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.language,
+                  color: Colors.white,
+                ),
               ),
-              child: const Icon(
-                Icons.language,
-                color: Colors.white,
-              ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     ),
          const SizedBox(height: 16),
@@ -189,15 +195,15 @@ Widget build(BuildContext context) {
                                       builder: (_) => const LoginScreen()),
                                 );
                               },
-                              child: Text(
-                                loc.login,
-                                style: const TextStyle(
-                                    fontSize: 16, color: Colors.black87),
-                              ),
+                child: Text(
+                  'login'.tr(),
+                  style: const TextStyle(
+                    fontSize: 16, color: Colors.black87),
+                  ),
                             ),
                             const SizedBox(width: 20),
                             _GlassTab(
-                              label: loc.signup,
+                              label: 'signup'.tr(),
                               isActive: true,
                               underlineColor: const Color(0xFFEE6B33),
                             ),
@@ -207,13 +213,13 @@ Widget build(BuildContext context) {
                         const SizedBox(height: 22),
                         _GlassTextField(
                           controller: fullNameController,
-                          hint: loc.fullName,
+                          hint: 'fullName'.tr(),
                           icon: Icons.person,
                           validator: (v) {
                             final text = (v ?? '').trim();
-                            if (text.isEmpty) return loc.requiredField;
+                            if (text.isEmpty) return 'requiredField'.tr();
                             if (!RegExp(r'^\S+\s+\S+').hasMatch(text)) {
-                              return loc.enterFullName;
+                              return 'enterFullName'.tr();
                             }
                             return null;
                           },
@@ -221,7 +227,7 @@ Widget build(BuildContext context) {
                         const SizedBox(height: 12),
                         _GlassTextField(
                           controller: emailController,
-                          hint: loc.email,
+                          hint: 'email'.tr(),
                           icon: Icons.email,
                           keyboardType: TextInputType.emailAddress,
                           validator: _required,
@@ -231,14 +237,14 @@ Widget build(BuildContext context) {
                        _GlassPhoneField(
   controller: phoneController,
   onChanged: (v) => setState(() => completePhoneNumber = v),
-  hint: loc.phoneNumber, // ✅ on injecte la traduction ici
+  hint: 'phoneNumber'.tr(),
 ),
 
                         const SizedBox(height: 12),
 
                         _GlassTextField(
                           controller: passwordController,
-                          hint: loc.password,
+                          hint: 'password'.tr(),
                           icon: Icons.lock,
                           obscure: _obscurePassword,
                           validator: _required,
@@ -256,15 +262,15 @@ Widget build(BuildContext context) {
                         const SizedBox(height: 12),
                         _GlassTextField(
                           controller: confirmPasswordController,
-                          hint: loc.rePassword,
+                          hint: 'rePassword'.tr(),
                           icon: Icons.lock_outline,
                           obscure: _obscureConfirm,
                           validator: (v) {
                             if (v == null || v.trim().isEmpty) {
-                              return loc.requiredField;
+                              return 'requiredField'.tr();
                             }
                             if (v != passwordController.text) {
-                              return loc.passwordMismatch;
+                              return 'passwordMismatch'.tr();
                             }
                             return null;
                           },
@@ -297,60 +303,49 @@ Widget build(BuildContext context) {
 
                         const SizedBox(height: 22),
                         _GlassButton(
-                          label: loc.signUpBtn,
+                          label: 'signUpBtn'.tr(),
                           color: const Color(0xFFEE6B33),
                           onPressed: () {
                             if (_formKey.currentState!.validate()) {
                               if (selectedDate == null) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text(loc.selectDob)),
+                                  SnackBar(content: Text('selectDob'.tr())),
                                 );
                                 return;
                               }
-                              if (completePhoneNumber == null ||
-                                  completePhoneNumber!.isEmpty) {
+                              if (completePhoneNumber == null || completePhoneNumber!.isEmpty) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text(loc.validPhone)),
+                                  SnackBar(content: Text('validPhone'.tr())),
                                 );
                                 return;
                               }
-
-                              // Vérifier le pays choisi
-final isEgypt = completePhoneNumber!.startsWith('+20');
-
-if (isEgypt) {
-  final egyptianRegex = RegExp(r'^(?:\+20|0)(10|11|12|15)\d{8}$');
-  if (!egyptianRegex.hasMatch(completePhoneNumber!)) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(loc.validEgyptPhone)),
-    );
-    return;
-  }
-} else {
-  // ✅ pour les autres pays, juste vérifier que le champ n’est pas vide
-  if (completePhoneNumber!.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(loc.validPhone)),
-    );
-    return;
-  }
-}
-
+                              final isEgypt = completePhoneNumber!.startsWith('+20');
+                              if (isEgypt) {
+                                final egyptianRegex = RegExp(r'^(?:\+20|0)(10|11|12|15)\d{8}$');
+                                if (!egyptianRegex.hasMatch(completePhoneNumber!)) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('validEgyptPhone'.tr())),
+                                  );
+                                  return;
+                                }
+                              } else {
+                                if (completePhoneNumber!.isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('validPhone'.tr())),
+                                  );
+                                  return;
+                                }
+                              }
                               final parts = _splitName(fullNameController.text);
-
                               final user = UserModel(
                                 email: emailController.text.trim(),
                                 password: passwordController.text.trim(),
                                 firstName: parts['first'] ?? '',
                                 lastName: parts['last'] ?? '',
                                 mobile: completePhoneNumber!,
-                                dateOfBirth: DateFormat('yyyy-MM-dd')
-                                    .format(selectedDate!),
+                                dateOfBirth: DateFormat('yyyy-MM-dd').format(selectedDate!),
                               );
-
-                              Provider.of<AuthViewModel>(context,
-                                      listen: false)
-                                  .signup(user, context);
+                              Provider.of<AuthViewModel>(context, listen: false).signup(user, context);
                             }
                           },
                         ),
@@ -359,7 +354,7 @@ if (isEgypt) {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text("${loc.alreadyAccount} "),
+                            Text('${'alreadyAccount'.tr()} '),
                             GestureDetector(
                               onTap: () {
                                 Navigator.pushReplacement(
@@ -369,7 +364,7 @@ if (isEgypt) {
                                 );
                               },
                               child: Text(
-                                loc.login,
+                                'login'.tr(),
                                 style: const TextStyle(
                                   color: Color(0xFFEE6B33),
                                   fontWeight: FontWeight.bold,
@@ -519,7 +514,7 @@ class _GlassPhoneField extends StatelessWidget {
             initialCountryCode: 'EG',   // 🇪🇬 Égypte par défaut
             showDropdownIcon: true,
             disableLengthCheck: true,
-            searchText: AppLocalizations.of(context)!.searchCountry,
+            searchText: 'searchCountry'.tr(),
             decoration: InputDecoration(
               border: InputBorder.none,
               hintText: hint,

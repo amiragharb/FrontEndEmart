@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:frontendemart/viewmodels/items_viewmodel.dart';
 import 'package:frontendemart/views/homeAdmin/custom_bottom_navbar.dart';
 import 'package:provider/provider.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 class CategoryItemsScreen extends StatelessWidget {
   final String categoryId;
@@ -17,13 +18,13 @@ class CategoryItemsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final locale = context.locale.languageCode;
     return ChangeNotifierProvider(
       create: (_) => ItemsViewModel()..loadItems(category: categoryId),
       child: Scaffold(
         backgroundColor: const Color(0xFFF8FAFC),
         appBar: AppBar(
           backgroundColor: _primaryColor,
-          elevation: 0,
           title: Text(
             categoryName,
             style: const TextStyle(fontWeight: FontWeight.bold),
@@ -35,11 +36,9 @@ class CategoryItemsScreen extends StatelessWidget {
             if (vm.loading) {
               return const Center(child: CircularProgressIndicator());
             }
-
             if (vm.items.isEmpty) {
               return _buildEmptyState();
             }
-
             return GridView.builder(
               padding: const EdgeInsets.all(16),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -51,7 +50,7 @@ class CategoryItemsScreen extends StatelessWidget {
               itemCount: vm.items.length,
               itemBuilder: (context, index) {
                 final item = vm.items[index];
-                return _buildModernProductCard(item);
+                return _buildModernProductCard(item, locale);
               },
             );
           },
@@ -61,13 +60,11 @@ class CategoryItemsScreen extends StatelessWidget {
     );
   }
 
-  /// 🛒 Carte produit moderne (même style que Home)
-  Widget _buildModernProductCard(item) {
+  Widget _buildModernProductCard(item, String locale) {
     final hasDiscount = item.priceWas != null && item.priceWas > item.price;
     final discountPercent = hasDiscount
         ? (((item.priceWas - item.price) / item.priceWas) * 100).round()
         : 0;
-
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -92,15 +89,14 @@ class CategoryItemsScreen extends StatelessWidget {
                   height: 140,
                   width: double.infinity,
                   color: Colors.grey.shade50,
-                  child: Image.network(
-                    item.photoUrl ?? "",
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      color: Colors.grey.shade100,
-                      child: Icon(Icons.image_not_supported,
-                          size: 60, color: Colors.grey.shade400),
-                    ),
-                  ),
+                  child: item.photoUrl != null && item.photoUrl.isNotEmpty
+                      ? Image.network(
+                          item.photoUrl,
+                          fit: BoxFit.cover,
+                        )
+                      : Center(
+                          child: Icon(Icons.image_not_supported, size: 60, color: Colors.grey.shade400),
+                        ),
                 ),
               ),
               if (hasDiscount)
@@ -132,7 +128,7 @@ class CategoryItemsScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    item.nameEn,
+                    locale == 'ar' ? (item.nameAr ?? item.nameEn) : item.nameEn,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -151,7 +147,7 @@ class CategoryItemsScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
-                          "\$${item.price}",
+                          "${item.price.toInt()} ${'egp'.tr()}",
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -162,7 +158,7 @@ class CategoryItemsScreen extends StatelessWidget {
                       if (hasDiscount) ...[
                         const SizedBox(width: 8),
                         Text(
-                          "${item.priceWas}",
+                          "${item.priceWas.toInt()} ${'egp'.tr()}",
                           style: TextStyle(
                             fontSize: 12,
                             decoration: TextDecoration.lineThrough,
@@ -181,7 +177,6 @@ class CategoryItemsScreen extends StatelessWidget {
     );
   }
 
-  /// État vide avec joli design
   Widget _buildEmptyState() {
     return Center(
       child: Column(
@@ -189,13 +184,13 @@ class CategoryItemsScreen extends StatelessWidget {
         children: [
           Icon(Icons.inventory_2_outlined, size: 80, color: _primaryColor),
           const SizedBox(height: 16),
-          const Text(
-            "Aucun produit trouvé 😕",
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          Text(
+            'no_products_found'.tr(),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           Text(
-            "Revenez plus tard ou choisissez une autre catégorie",
+            'try_another_category'.tr(),
             style: TextStyle(color: Colors.grey.shade600),
           ),
         ],

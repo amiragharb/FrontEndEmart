@@ -7,6 +7,7 @@ import 'package:frontendemart/viewmodels/auth_viewmodel.dart';
 import 'package:provider/provider.dart';
 import 'signup_screen.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -39,6 +40,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Listen to locale to force rebuild on language change
+    final _ = context.locale;
     final screen = MediaQuery.of(context).size;
 
     return Scaffold(
@@ -78,7 +81,8 @@ SafeArea(
     child: Consumer<LocaleProvider>(
       builder: (context, localeProvider, _) {
         return PopupMenuButton<Locale>(
-          onSelected: (locale) {
+          onSelected: (locale) async {
+            await EasyLocalization.of(context)!.setLocale(locale);
             localeProvider.setLocale(locale);
           },
           tooltip: "Change language",
@@ -160,11 +164,11 @@ SafeArea(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 _GlassTab(
-  label: AppLocalizations.of(context)!.login,
-  isActive: true,
-  underlineColor: const Color(0xFFEE6B33),
-),
-
+                                  label: 'login'.tr(),
+                                  isActive: true,
+                                  underlineColor: const Color(0xFFEE6B33),
+                                  // No need to set textAlign here, handled inside _GlassTab
+                                ),
                                 const SizedBox(width: 20),
                                 GestureDetector(
                                   onTap: () {
@@ -174,15 +178,20 @@ SafeArea(
                                           builder: (_) => const SignUpScreen()),
                                     );
                                   },
-                                  child: Text(
-  AppLocalizations.of(context)!.signup,
-  style: const TextStyle(
-    fontSize: 16,
-    color: Colors.black87,
-    fontWeight: FontWeight.w500,
-  ),
-),
-
+                                  child: Builder(
+                                    builder: (context) {
+                                      final locale = context.locale.languageCode;
+                                      return Text(
+                                        'signup'.tr(),
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          color: Colors.black87,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        textAlign: locale == 'ar' ? TextAlign.right : TextAlign.left,
+                                      );
+                                    },
+                                  ),
                                 ),
                               ],
                             ),
@@ -190,15 +199,15 @@ SafeArea(
                             const SizedBox(height: 22),
                             _GlassTextField(
                               controller: emailOrPhoneController,
-hint: AppLocalizations.of(context)!.emailOrPhone,
+                              hint: 'emailOrPhone'.tr(),
                               icon: Icons.alternate_email,
                               validator: (v) {
                                 final value = (v ?? '').trim();
-if (value.isEmpty) return AppLocalizations.of(context)!.requiredField;
+                                if (value.isEmpty) return 'requiredField'.tr();
                                 final isEmail = _emailRx.hasMatch(value);
                                 final isEgPhone = _egPhoneRx.hasMatch(value);
                                 if (!isEmail && !isEgPhone) {
-return AppLocalizations.of(context)!.invalidEmailOrPhone;
+                                  return 'invalidEmailOrPhone'.tr();
                                 }
                                 return null;
                               },
@@ -206,12 +215,11 @@ return AppLocalizations.of(context)!.invalidEmailOrPhone;
                             const SizedBox(height: 12),
                             _GlassTextField(
                               controller: passwordController,
-hint: AppLocalizations.of(context)!.password,
+                              hint: 'password'.tr(),
                               icon: Icons.lock,
                               obscure: _obscurePassword,
                               validator: (v) =>
-    v == null || v.trim().isEmpty ? AppLocalizations.of(context)!.requiredField : null,
-                                     
+                                  v == null || v.trim().isEmpty ? 'requiredField'.tr() : null,
                               trailing: IconButton(
                                 icon: Icon(
                                   _obscurePassword
@@ -227,32 +235,28 @@ hint: AppLocalizations.of(context)!.password,
                             Align(
                               alignment: Alignment.centerRight,
                               child: Text(
-  AppLocalizations.of(context)!.forgotPassword,
-  style: const TextStyle(
-    fontWeight: FontWeight.w600,
-    color: Colors.black87,
-  ),
-),
+                                'forgotPassword'.tr(),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black87,
+                                ),
+                              ),
 
                             ),
 
                             const SizedBox(height: 6),
                             _GlassButton(
-  label: AppLocalizations.of(context)!.login,
+                              label: 'login'.tr(),
                               color: const Color(0xFFEE6B33),
                               onPressed: () {
                                 if (_formKey.currentState!.validate()) {
-                                  final vm = Provider.of<AuthViewModel>(context,
-                                      listen: false);
-
-                                  // Normaliser le téléphone local égyptien -> +20...
+                                  final vm = Provider.of<AuthViewModel>(context, listen: false);
                                   String id = emailOrPhoneController.text.trim();
                                   if (_egLocalRx.hasMatch(id)) {
                                     id = '+20${id.substring(1)}';
                                   }
-
                                   vm.login(
-                                    id, // email OU phone (normalisé)
+                                    id,
                                     passwordController.text,
                                     context,
                                   );
@@ -265,13 +269,11 @@ hint: AppLocalizations.of(context)!.password,
                               children: [
                                 const Expanded(child: Divider(thickness: .8)),
                                 Padding(
-                                  padding:
-                                      const EdgeInsets.symmetric(horizontal: 10),
+                                  padding: const EdgeInsets.symmetric(horizontal: 10),
                                   child: Text(
-  AppLocalizations.of(context)!.orSignInWith,
-  style: const TextStyle(color: Colors.black54),
-),
-
+                                    'orSignInWith'.tr(),
+                                    style: const TextStyle(color: Colors.black54),
+                                  ),
                                 ),
                                 const Expanded(child: Divider(thickness: .8)),
                               ],
@@ -346,7 +348,7 @@ hint: AppLocalizations.of(context)!.password,
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        AppLocalizations.of(context)!.resetPassword,
+                        'resetPassword'.tr(),
                         style: const TextStyle(
                             fontWeight: FontWeight.w700, fontSize: 18),
                       ),
@@ -358,15 +360,15 @@ hint: AppLocalizations.of(context)!.password,
                           final email = v?.trim() ?? '';
                           final ok = _emailRx.hasMatch(email);
                           if (email.isEmpty) {
-                            return AppLocalizations.of(context)!.emailRequired;
+                            return 'emailRequired'.tr();
                           }
                           if (!ok) {
-                            return AppLocalizations.of(context)!.invalidEmail;
+                            return 'invalidEmail'.tr();
                           }
                           return null;
                         },
                         decoration: InputDecoration(
-                          hintText: AppLocalizations.of(context)!.yourEmail,
+                          hintText: 'yourEmail'.tr(),
                           prefixIcon: const Icon(Icons.email_outlined),
                           filled: true,
                           fillColor: Colors.white,
@@ -382,7 +384,7 @@ hint: AppLocalizations.of(context)!.password,
                             onPressed: sending
                                 ? null
                                 : () => Navigator.pop(context),
-                            child: Text(AppLocalizations.of(context)!.cancel),
+                            child: Text('cancel'.tr()),
                           ),
                           const Spacer(),
                           ElevatedButton(
@@ -429,7 +431,7 @@ hint: AppLocalizations.of(context)!.password,
                                     child: CircularProgressIndicator(
                                         strokeWidth: 2),
                                   )
-                                : Text(AppLocalizations.of(context)!.send),
+                                : Text('send'.tr()),
                           ),
                         ],
                       ),
@@ -455,17 +457,17 @@ hint: AppLocalizations.of(context)!.password,
     context: context,
     barrierDismissible: false,
     builder: (_) => AlertDialog(
-      title: Text(AppLocalizations.of(context)!.enterCode),
+  title: Text('enterCode'.tr()),
       content: Form(
         key: formKey,
         child: TextFormField(
           controller: codeCtrl,
           autofocus: true,
           validator: (v) => (v == null || v.trim().isEmpty)
-              ? AppLocalizations.of(context)!.codeRequired
+              ? 'codeRequired'.tr()
               : null,
           decoration: InputDecoration(
-            hintText: AppLocalizations.of(context)!.code,
+            hintText: 'code'.tr(),
             prefixIcon: const Icon(Icons.lock_outline),
           ),
           onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
@@ -474,7 +476,7 @@ hint: AppLocalizations.of(context)!.password,
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text(AppLocalizations.of(context)!.cancel),
+          child: Text('cancel'.tr()),
         ),
         ElevatedButton(
           onPressed: () async {
@@ -486,7 +488,7 @@ hint: AppLocalizations.of(context)!.password,
               codeCtrl.text.trim(),
             );
           },
-          child: Text(AppLocalizations.of(context)!.verify),
+          child: Text('verify'.tr()),
         ),
       ],
     ),
@@ -713,6 +715,7 @@ class _GlassTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final locale = context.locale.languageCode;
     return Column(
       children: [
         Text(
@@ -722,6 +725,7 @@ class _GlassTab extends StatelessWidget {
             fontWeight: FontWeight.bold,
             color: isActive ? underlineColor : Colors.black87,
           ),
+          textAlign: locale == 'ar' ? TextAlign.right : TextAlign.left,
         ),
         const SizedBox(height: 6),
         if (isActive)

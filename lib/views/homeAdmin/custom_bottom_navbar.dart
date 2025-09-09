@@ -1,37 +1,45 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:frontendemart/l10n/app_localizations.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:frontendemart/views/homeAdmin/home_screen.dart';
 import 'package:frontendemart/views/profile/profile_screen.dart';
 
-/// Bottom bar "glass + sliding capsule"
-// … même imports
-
-class CustomBottomNavBar extends StatelessWidget {
+class CustomBottomNavBar extends StatefulWidget {
   final int currentIndex;
   const CustomBottomNavBar({super.key, required this.currentIndex});
 
-  static const _accent = Color(0xFFEE6B33);
+  @override
+  State<CustomBottomNavBar> createState() => _CustomBottomNavBarState();
+}
+
+class _CustomBottomNavBarState extends State<CustomBottomNavBar> {
 
   void _navigate(BuildContext context, int index) {
-    // garde-fou
     final safeIndex = index.clamp(0, 4);
     index = safeIndex;
-
     Widget dest;
     switch (index) {
-      case 0: dest = const HomeScreen(); break;
-      case 1: dest = const Center(child: Text('PromoScreen')); break;
-      case 2: dest = const Center(child: Text('ProductScreen')); break;
-      case 3: dest = const Center(child: Text('StoreScreen')); break;
-      case 4: dest = const ProfileScreen(); break;
-      default: dest = const HomeScreen();
+      case 0:
+        dest = const HomeScreen();
+        break;
+      case 1:
+        dest = const Center(child: Text('PromoScreen'));
+        break;
+      case 2:
+        dest = const Center(child: Text('ProductScreen'));
+        break;
+      case 3:
+        dest = const Center(child: Text('StoreScreen'));
+        break;
+      case 4:
+        dest = const ProfileScreen();
+        break;
+      default:
+        dest = const HomeScreen();
     }
-
     final current = ModalRoute.of(context)?.settings.name;
     final target = dest.runtimeType.toString();
     if (current != target) {
-      // petit haptique sympa
       Feedback.forTap(context);
       Navigator.pushReplacement(
         context,
@@ -48,19 +56,15 @@ class CustomBottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-
-final items = [
-  _NavItem(Icons.home_outlined, l10n.navHome),
-  _NavItem(Icons.discount_outlined, l10n.navPromo),
-  _NavItem(Icons.shopping_bag_outlined, l10n.navShop),
-  _NavItem(Icons.storefront_outlined, l10n.navStores),
-  _NavItem(Icons.person_outline, l10n.navProfile),
-];
-
-
-    final idx = currentIndex.clamp(0, items.length - 1);
-
+    final _ = EasyLocalization.of(context)!.locale;
+    final items = [
+      _NavItem(Icons.home_outlined, 'home'.tr()),
+      _NavItem(Icons.discount_outlined, 'promo'.tr()),
+      _NavItem(Icons.shopping_bag_outlined, 'shop'.tr()),
+      _NavItem(Icons.storefront_outlined, 'stores'.tr()),
+      _NavItem(Icons.person_outline, 'profile'.tr()),
+    ];
+    final idx = widget.currentIndex.clamp(0, items.length - 1);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
       child: ClipRRect(
@@ -100,22 +104,12 @@ final items = [
   }
 }
 
-
-/// Fond "capsule" qui glisse sous l’onglet actif
 class _SlidingCapsule extends StatelessWidget {
   final int index;
   final int itemCount;
   final Widget child;
-  const _SlidingCapsule({
-    required this.index,
-    required this.itemCount,
-    required this.child,
-  });
-
-  /// Map l’index -> align -1.0 .. 1.0
-  double get _alignmentX =>
-      itemCount <= 1 ? 0 : (index / (itemCount - 1)) * 2 - 1;
-
+  const _SlidingCapsule({required this.index, required this.itemCount, required this.child});
+  double get _alignmentX => itemCount <= 1 ? 0 : (index / (itemCount - 1)) * 2 - 1;
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -145,19 +139,15 @@ class _SlidingCapsule extends StatelessWidget {
   }
 }
 
-/// Un item de la barre
 class _BarItem extends StatelessWidget {
   final _NavItem item;
   final bool selected;
   final VoidCallback onTap;
   const _BarItem({required this.item, required this.selected, required this.onTap});
-
-  static const _accent = CustomBottomNavBar._accent;
-
+  static const _accent = Color(0xFFEE6B33);
   @override
   Widget build(BuildContext context) {
     final inactive = Colors.black.withOpacity(.45);
-
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(18),
@@ -177,22 +167,46 @@ class _BarItem extends StatelessWidget {
                     child: Icon(item.icon, color: _accent, size: 24),
                   ),
                   const SizedBox(width: 8),
-                  // Label visible uniquement pour l’actif
-                  AnimatedDefaultTextStyle(
-                    duration: const Duration(milliseconds: 180),
-                    style: const TextStyle(
-                      color: _accent,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
-                      letterSpacing: .2,
+                  Flexible(
+                    child: AnimatedDefaultTextStyle(
+                      duration: const Duration(milliseconds: 180),
+                      style: const TextStyle(
+                        color: _accent,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                        letterSpacing: .2,
+                      ),
+                      child: Text(
+                        item.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                      ),
                     ),
-                    child: Text(item.label),
                   ),
                 ],
               )
-            : Center(
-                key: const ValueKey('idle'),
-                child: Icon(item.icon, color: inactive, size: 24),
+            : Column(
+                key: const ValueKey('unselected'),
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(item.icon, color: inactive, size: 22),
+                  const SizedBox(height: 4),
+                  Flexible(
+                    child: Text(
+                      item.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: inactive,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 11.5,
+                        letterSpacing: .1,
+                      ),
+                    ),
+                  ),
+                ],
               ),
       ),
     );

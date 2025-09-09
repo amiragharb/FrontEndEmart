@@ -62,10 +62,10 @@ class Summary2Screen extends StatelessWidget {
                       ),
                       title: Text(item.nameEn),
                       subtitle: Text(
-                        "${item.price.toStringAsFixed(2)} EGP  x${item.qty ?? 1}",
+                        "${item.price.toInt()} EGP  x${item.qty ?? 1}",
                       ),
                       trailing: Text(
-                        "${(item.price * (item.qty ?? 1)).toStringAsFixed(2)} EGP",
+                        "${(item.price * (item.qty ?? 1)).toInt()} EGP",
                         style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             color: Colors.green),
@@ -86,9 +86,9 @@ class Summary2Screen extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text("Total: ${total.toStringAsFixed(2)} EGP",
-                      style: const TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.bold)),
+          Text("Total: ${total.toInt()} EGP",
+            style: const TextStyle(
+              fontSize: 18, fontWeight: FontWeight.bold)),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.deepOrange,

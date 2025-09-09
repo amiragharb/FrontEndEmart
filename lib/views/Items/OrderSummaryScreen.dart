@@ -96,7 +96,7 @@ class _OrderSummaryScreenState extends State<OrderSummaryScreen> {
                                             fontWeight: FontWeight.bold)),
                                     const SizedBox(height: 6),
                                     Text(
-                                      "${item.price.toStringAsFixed(2)} EGP",
+                                      "${item.price.toInt()} EGP",
                                       style: const TextStyle(
                                         fontSize: 14,
                                         color: Colors.green,
@@ -173,7 +173,7 @@ class _OrderSummaryScreenState extends State<OrderSummaryScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        "Total: ${total.toStringAsFixed(2)} EGP",
+                        "Total: ${total.toInt()} EGP",
                         style: const TextStyle(
                             fontSize: 18, fontWeight: FontWeight.bold),
                       ),

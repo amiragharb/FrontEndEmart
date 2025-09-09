@@ -618,13 +618,13 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen>
 }
 
   Widget _buildPriceSectionModern() {
-    final hasDiscount = widget.item.priceWas != null && widget.item.priceWas! > widget.item.price;
-    final discountPercent = hasDiscount
-        ? (((widget.item.priceWas! - widget.item.price) / widget.item.priceWas!) * 100).round()
-        : 0;
+  final hasDiscount = widget.item.priceWas != null && widget.item.priceWas! > widget.item.price;
+  final discountPercent = hasDiscount
+    ? (((widget.item.priceWas! - widget.item.price) / widget.item.priceWas!) * 100).round()
+    : 0;
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 28),
+  return Container(
+    margin: const EdgeInsets.symmetric(horizontal: 28),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -658,7 +658,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen>
                   children: [
                     Flexible(
                       child: Text(
-                        "${widget.item.price.toStringAsFixed(2)} EGP",
+                        "${widget.item.price.toInt()} EGP",
                         style: TextStyle(
                           fontSize: hasDiscount ? 24 : 28,
                           fontWeight: FontWeight.bold,
@@ -670,7 +670,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen>
                       const SizedBox(width: 8),
                       Flexible(
                         child: Text(
-                          "${widget.item.priceWas?.toStringAsFixed(2)} EGP",
+                          "${widget.item.priceWas?.toInt()} EGP",
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 16,

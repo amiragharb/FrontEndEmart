@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:frontendemart/change_langue/change_language.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:provider/provider.dart';
 import 'package:frontendemart/viewmodels/auth_viewmodel.dart';
 import 'package:frontendemart/views/profile/personal_information_screen.dart';
 import 'package:frontendemart/views/profile/change_password_screen.dart';
 import 'package:frontendemart/views/homeAdmin/custom_bottom_navbar.dart';
-import 'package:frontendemart/routes/routes.dart';
+import 'package:frontendemart/views/homeAdmin/home_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -24,8 +26,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Listen to locale to force rebuild on language change
+    final _ = context.locale;
     final vm = context.watch<AuthViewModel>();
-    final user = vm.userData;
+  final user = vm.userData;
 
     return Scaffold(
       backgroundColor: const Color(0xFFFCF4F4),
@@ -33,9 +37,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
         elevation: 0,
         backgroundColor: Colors.transparent,
         centerTitle: true,
-        title: const Text(
-          'Profile',
-          style: TextStyle(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Color(0xFFEE6B33)),
+          onPressed: () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const HomeScreen()),
+            );
+          },
+        ),
+        title: Text(
+          'profile'.tr(),
+          style: const TextStyle(
             color: Color(0xFFEE6B33),
             fontSize: 24,
             fontWeight: FontWeight.w800,
@@ -44,25 +57,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       body: vm.isLoading
           ? const Center(child: CircularProgressIndicator())
-          : user == null
-              ? const Center(child: Text("Aucune donnée utilisateur trouvée."))
+          : user == null || user['username'] == null
+              ? Center(child: Text("no_user_data_found".tr()))
               : SafeArea(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                     child: Column(
                       children: [
                         // HEADER
-                        _HeaderCard(name: '${user['username'] ?? 'User'}'),
+                        _HeaderCard(name: (user['username'] is String && (user['username'] as String).isNotEmpty) ? user['username'] : 'User'),
 
                         const SizedBox(height: 16),
 
-                        // SECTION 1 — Compte
+                        // SECTION 1 — Account
                         _SectionCard(
-                          title: 'Compte',
+                          titleKey: 'account',
                           children: [
                             _Cell(
                               icon: Icons.person_outline,
-                              text: 'Personal Information',
+                              textKey: 'personal_information',
                               onTap: () => Navigator.push(
                                 context,
                                 MaterialPageRoute(
@@ -72,7 +85,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                             _Cell(
                               icon: Icons.lock_outline,
-                              text: 'Update Password',
+                              textKey: 'update_password',
                               onTap: () => Navigator.push(
                                 context,
                                 MaterialPageRoute(
@@ -87,32 +100,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                         // SECTION 2 — Services
                         _SectionCard(
-                          title: 'Services',
-                          children: const [
+                          titleKey: 'services',
+                          children: [
                             _Cell(
                               icon: Icons.account_balance_wallet_outlined,
-                              text: 'Banks and Cards',
+                              textKey: 'banks_and_cards',
                             ),
                             _Cell(
                               icon: Icons.message_outlined,
-                              text: 'Message Center',
+                              textKey: 'message_center',
                             ),
                             _Cell(
                               icon: Icons.settings_outlined,
-                              text: 'Settings',
+                              textKey: 'settings',
                             ),
                           ],
                         ),
 
                         const SizedBox(height: 16),
 
-                        // SECTION 3 — Alertes
+                        // SECTION 3 — Alerts
                         _SectionCard(
-                          title: 'Alertes',
-                          children: const [
+                          titleKey: 'alerts',
+                          children: [
                             _Cell(
                               icon: Icons.notifications_none_outlined,
-                              text: 'Notifications',
+                              textKey: 'notifications',
                               badge: '2',
                             ),
                           ],
@@ -121,12 +134,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         const SizedBox(height: 20),
 
                         // LOGOUT
-                       _LogoutButton(
-  onTap: () {
-    context.read<AuthViewModel>().logout(context);
-  },
-),
-
+                        _LogoutButton(
+                          onTap: () {
+                            context.read<AuthViewModel>().logout(context);
+                          },
+                        ),
                       ],
                     ),
                   ),
@@ -187,7 +199,64 @@ class _HeaderCard extends StatelessWidget {
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
             ),
           ),
-          const Icon(Icons.chevron_right, color: Colors.black45),
+          // Language change circle (as in login)
+          Consumer<LocaleProvider>(
+            builder: (context, localeProvider, _) {
+              return PopupMenuButton<Locale>(
+                onSelected: (locale) async {
+                  // Update both easy_localization and provider
+                  await context.setLocale(locale);
+                  localeProvider.setLocale(locale);
+                },
+                tooltip: 'change_language'.tr(),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: const Locale('en'),
+                    child: Row(
+                      children: [
+                        const Text("🇺🇸 "),
+                        const SizedBox(width: 8),
+                        Text("English".tr()),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: const Locale('ar'),
+                    child: Row(
+                      children: [
+                        const Text("🇪🇬 "),
+                        const SizedBox(width: 8),
+                        Text("العربية".tr()),
+                      ],
+                    ),
+                  ),
+                ],
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  margin: const EdgeInsets.only(left: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEE6B33),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.15),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.language,
+                    color: Colors.white,
+                  ),
+                ),
+              );
+            },
+          ),
         ],
       ),
     );
@@ -195,8 +264,8 @@ class _HeaderCard extends StatelessWidget {
 }
 
 class _SectionCard extends StatelessWidget {
-  const _SectionCard({required this.title, required this.children});
-  final String title;
+  const _SectionCard({required this.titleKey, required this.children});
+  final String titleKey;
   final List<Widget> children;
 
   @override
@@ -226,7 +295,7 @@ class _SectionCard extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  title,
+                  titleKey.tr(),
                   style: const TextStyle(
                     fontWeight: FontWeight.w700,
                     color: Colors.black87,
@@ -258,13 +327,13 @@ class _SectionCard extends StatelessWidget {
 class _Cell extends StatelessWidget {
   const _Cell({
     required this.icon,
-    required this.text,
+    required this.textKey,
     this.onTap,
     this.badge,
   });
 
   final IconData icon;
-  final String text;
+  final String textKey;
   final VoidCallback? onTap;
   final String? badge;
 
@@ -298,7 +367,7 @@ class _Cell extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                text,
+                textKey.tr(),
                 style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w500),
               ),
             ),
@@ -335,9 +404,9 @@ class _LogoutButton extends StatelessWidget {
       child: ElevatedButton.icon(
         onPressed: onTap,
         icon: const Icon(Icons.logout, color: Colors.white),
-        label: const Text(
-          'Logout',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+        label: Text(
+          'logout'.tr(),
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
         ),
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFFEE6B33),

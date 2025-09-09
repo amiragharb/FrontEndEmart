@@ -1,10 +1,9 @@
+import 'package:frontendemart/main.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:frontendemart/routes/routes.dart';
-import 'package:frontendemart/views/Auth/login_screen.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
 import '../models/user_model.dart';
@@ -85,7 +84,32 @@ class AuthViewModel extends ChangeNotifier {
 
   // ---------------------- PROFILE ----------------------
   Future<void> loadUserProfile() async {
-    _userData = await _authService.getProfile();
+    final profile = await _authService.getProfile();
+    if (profile == null) {
+      // Session expired or unauthorized
+      final ctx = navigatorKey.currentContext;
+      if (ctx != null) {
+        showDialog(
+          context: ctx,
+          barrierDismissible: false,
+          builder: (dialogCtx) => AlertDialog(
+            title: Text('Session Expired'),
+            content: Text('Your session has ended. Please log in again.'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(dialogCtx).pop();
+                  logout(ctx);
+                },
+                child: Text('Re-login'),
+              ),
+            ],
+          ),
+        );
+      }
+      return;
+    }
+    _userData = profile;
     notifyListeners();
   }
 
