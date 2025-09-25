@@ -1,8 +1,12 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:frontendemart/views/Items/ShowWishlistScreen.dart';
+import 'package:frontendemart/views/Ordres/OrderSummaryScreen.dart';
 import 'package:frontendemart/views/homeAdmin/home_screen.dart';
 import 'package:frontendemart/views/profile/profile_screen.dart';
+import 'package:frontendemart/viewmodels/Config_ViewModel.dart';
+import 'package:provider/provider.dart';
 
 class CustomBottomNavBar extends StatefulWidget {
   final int currentIndex;
@@ -23,13 +27,15 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar> {
         dest = const HomeScreen();
         break;
       case 1:
-        dest = const Center(child: Text('PromoScreen'));
+      dest = const Center(child: Text('OffersScreen')); // TODO: remplacer par ta vraie vue
         break;
       case 2:
-        dest = const Center(child: Text('ProductScreen'));
+       dest = const OrderSummaryScreen();
+// TODO: remplacer par ta vraie vue
         break;
       case 3:
-        dest = const Center(child: Text('StoreScreen'));
+             dest = const ShowWishlistScreen();
+
         break;
       case 4:
         dest = const ProfileScreen();
@@ -56,14 +62,23 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar> {
 
   @override
   Widget build(BuildContext context) {
+    final configVM = Provider.of<ConfigViewModel>(context);
+    final config = configVM.config;
+
+    // Couleur primaire dynamique avec fallback
+    final primaryColor = (config?.ciPrimaryColor != null && config!.ciPrimaryColor!.isNotEmpty)
+        ? Color(int.parse('FF${config.ciPrimaryColor}', radix: 16))
+        : const Color(0xFFEE6B33);
+
     final _ = EasyLocalization.of(context)!.locale;
     final items = [
-      _NavItem(Icons.home_outlined, 'home'.tr()),
-      _NavItem(Icons.discount_outlined, 'promo'.tr()),
-      _NavItem(Icons.shopping_bag_outlined, 'shop'.tr()),
-      _NavItem(Icons.storefront_outlined, 'stores'.tr()),
-      _NavItem(Icons.person_outline, 'profile'.tr()),
-    ];
+  _NavItem(Icons.home_outlined, 'home'.tr()),              // 0 - Home
+  _NavItem(Icons.local_offer_outlined, 'offers'.tr()),     // 1 - Offers
+  _NavItem(Icons.receipt_long_outlined, 'orders'.tr()),    // 2 - Orders
+  _NavItem(Icons.favorite_border, 'wishlist'.tr()),        // 3 - Wishlist
+  _NavItem(Icons.person_outline, 'account'.tr()),          // 4 - Account
+];
+
     final idx = widget.currentIndex.clamp(0, items.length - 1);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
@@ -91,6 +106,7 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar> {
                     child: _BarItem(
                       item: items[i],
                       selected: selected,
+                      primaryColor: primaryColor, // <- couleur dynamique ici
                       onTap: () => _navigate(context, i),
                     ),
                   );
@@ -143,15 +159,22 @@ class _BarItem extends StatelessWidget {
   final _NavItem item;
   final bool selected;
   final VoidCallback onTap;
-  const _BarItem({required this.item, required this.selected, required this.onTap});
-  static const _accent = Color(0xFFEE6B33);
+  final Color primaryColor; // <- nouvelle propriété
+
+  const _BarItem({
+    required this.item,
+    required this.selected,
+    required this.primaryColor,
+    required this.onTap,
+  });
+
   @override
   Widget build(BuildContext context) {
     final inactive = Colors.black.withOpacity(.45);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(18),
-      splashColor: _accent.withOpacity(.12),
+      splashColor: primaryColor.withOpacity(.12),
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 180),
         switchInCurve: Curves.easeOutCubic,
@@ -164,14 +187,14 @@ class _BarItem extends StatelessWidget {
                   AnimatedScale(
                     duration: const Duration(milliseconds: 180),
                     scale: 1.1,
-                    child: Icon(item.icon, color: _accent, size: 24),
+                    child: Icon(item.icon, color: primaryColor, size: 24),
                   ),
                   const SizedBox(width: 8),
                   Flexible(
                     child: AnimatedDefaultTextStyle(
                       duration: const Duration(milliseconds: 180),
-                      style: const TextStyle(
-                        color: _accent,
+                      style: TextStyle(
+                        color: primaryColor,
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
                         letterSpacing: .2,

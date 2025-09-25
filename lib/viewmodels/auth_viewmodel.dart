@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:frontendemart/main.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -84,34 +85,36 @@ class AuthViewModel extends ChangeNotifier {
 
   // ---------------------- PROFILE ----------------------
   Future<void> loadUserProfile() async {
-    final profile = await _authService.getProfile();
-    if (profile == null) {
-      // Session expired or unauthorized
-      final ctx = navigatorKey.currentContext;
-      if (ctx != null) {
-        showDialog(
-          context: ctx,
-          barrierDismissible: false,
-          builder: (dialogCtx) => AlertDialog(
-            title: Text('Session Expired'),
-            content: Text('Your session has ended. Please log in again.'),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.of(dialogCtx).pop();
-                  logout(ctx);
-                },
-                child: Text('Re-login'),
-              ),
-            ],
-          ),
-        );
-      }
-      return;
+  final profile = await _authService.getProfile();
+
+  if (profile == null) {
+    // Session expirée ou non autorisée
+    final ctx = navigatorKey.currentContext;
+    if (ctx != null) {
+      showDialog(
+        context: ctx,
+        barrierDismissible: false,
+        builder: (dialogCtx) => AlertDialog(
+          title: Text('session_expired'.tr()), // traduction
+          content: Text('session_expired_message'.tr()), // traduction
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogCtx).pop();
+                logout(ctx);
+              },
+              child: Text('relogin'.tr()), // traduction
+            ),
+          ],
+        ),
+      );
     }
-    _userData = profile;
-    notifyListeners();
+    return;
   }
+
+  _userData = profile;
+  notifyListeners();
+}
 
   Future<void> updateUserProfile(Map<String, dynamic> newData, BuildContext context) async {
     isLoading = true;

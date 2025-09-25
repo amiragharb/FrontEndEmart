@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:frontendemart/viewmodels/auth_viewmodel.dart';
+import 'package:frontendemart/viewmodels/Config_ViewModel.dart';
 import 'package:intl/intl.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:provider/provider.dart';
+import 'package:easy_localization/easy_localization.dart';
+import 'dart:ui' as ui;
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -18,7 +21,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController _emailController;
   String? completePhoneNumber;
   String? _phoneOnly;
-  String _initialCountry = 'EG'; // Égypte par défaut
+  String _initialCountry = 'EG';
   DateTime? selectedDate;
 
   @override
@@ -52,55 +55,63 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<AuthViewModel>();
+    final config = context.watch<ConfigViewModel>().config;
+    final primaryColor = (config?.ciPrimaryColor != null && config!.ciPrimaryColor!.isNotEmpty)
+        ? Color(int.parse('FF${config.ciPrimaryColor}', radix: 16))
+        : const Color(0xFFEE6B33);
+
     final formattedDate = selectedDate != null
         ? DateFormat('yyyy-MM-dd').format(selectedDate!)
-        : 'Date de naissance';
+        : 'birthdate'.tr();
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFFCF4F4),
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        centerTitle: true,
-        title: const Text(
-          'Modifier le profil',
-          style: TextStyle(
-            color: Color(0xFF333333),
-            fontWeight: FontWeight.w700,
-            fontSize: 20,
-          ),
-        ),
-        iconTheme: const IconThemeData(color: Colors.black87),
-      ),
-      body: vm.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SafeArea(
-              child: Stack(
-                children: [
-                  SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
-                    child: Column(
-                      children: [
-                        _buildHeader(),
-                        const SizedBox(height: 16),
-                        _buildForm(formattedDate),
-                      ],
-                    ),
-                  ),
-                  _buildSaveButton(vm),
-                ],
-              ),
+    return Directionality(
+      textDirection: context.locale.languageCode == "ar" ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFFCF4F4),
+        appBar: AppBar(
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          centerTitle: true,
+          title: Text(
+            'edit_profile'.tr(),
+            style: TextStyle(
+              color: primaryColor,
+              fontWeight: FontWeight.w700,
+              fontSize: 20,
             ),
+          ),
+          iconTheme: IconThemeData(color: primaryColor),
+        ),
+        body: vm.isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : SafeArea(
+                child: Stack(
+                  children: [
+                    SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
+                      child: Column(
+                        children: [
+                          _buildHeader(primaryColor),
+                          const SizedBox(height: 16),
+                          _buildForm(formattedDate, primaryColor),
+                        ],
+                      ),
+                    ),
+                    _buildSaveButton(vm, primaryColor),
+                  ],
+                ),
+              ),
+      ),
     );
   }
 
-  Widget _buildHeader() => Container(
+  Widget _buildHeader(Color primaryColor) => Container(
         width: double.infinity,
         padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(24),
-          gradient: const LinearGradient(
-            colors: [Color(0xFFFFF5F0), Color.fromARGB(255, 215, 146, 117)],
+          gradient: LinearGradient(
+            colors: [Colors.white.withOpacity(0.9), primaryColor.withOpacity(0.3)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -113,12 +124,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             CircleAvatar(
               radius: 26,
               backgroundColor: Colors.white,
-              child: Icon(Icons.person, color: Colors.orange.shade700),
+              child: Icon(Icons.person, color: primaryColor),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                _usernameController.text.isEmpty ? 'Utilisateur' : _usernameController.text,
+                _usernameController.text.isEmpty ? 'user'.tr() : _usernameController.text,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -131,7 +142,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         ),
       );
 
-  Widget _buildForm(String formattedDate) => Container(
+  Widget _buildForm(String formattedDate, Color primaryColor) => Container(
         width: double.infinity,
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
         decoration: BoxDecoration(
@@ -145,44 +156,31 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           key: _formKey,
           child: Column(
             children: [
-              _Field(
-                label: "Nom d'utilisateur",
-                controller: _usernameController,
-                icon: Icons.person_outline,
-                validator: (v) =>
-                    v == null || v.trim().isEmpty ? 'Ce champ est requis' : null,
-              ),
+              _Field(label: "username".tr(), controller: _usernameController, icon: Icons.person_outline, primaryColor: primaryColor, validator: (v) => v == null || v.trim().isEmpty ? 'field_required'.tr() : null),
               const _DividerInset(),
-              _Field(
-                label: "Email",
-                controller: _emailController,
-                icon: Icons.email_outlined,
-                keyboardType: TextInputType.emailAddress,
-                validator: (v) =>
-                    v == null || v.trim().isEmpty ? 'Ce champ est requis' : null,
-              ),
+              _Field(label: "email".tr(), controller: _emailController, icon: Icons.email_outlined, primaryColor: primaryColor, keyboardType: TextInputType.emailAddress, validator: (v) => v == null || v.trim().isEmpty ? 'field_required'.tr() : null),
               const _DividerInset(),
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    _LeadingIcon(icon: Icons.phone_outlined),
+                    _LeadingIcon(icon: Icons.phone_outlined, primaryColor: primaryColor),
                     const SizedBox(width: 8),
                     Expanded(
                       child: IntlPhoneField(
+                        textAlign: context.locale.languageCode == "ar" ? TextAlign.right : TextAlign.left,
                         initialCountryCode: _initialCountry,
                         initialValue: _phoneOnly,
                         disableLengthCheck: true,
                         dropdownIconPosition: IconPosition.trailing,
                         onChanged: (p) => completePhoneNumber = p.completeNumber,
                         decoration: InputDecoration(
-                          hintText: 'Téléphone',
+                          hintText: 'phone'.tr(),
                           isDense: true,
                           filled: true,
                           fillColor: const Color(0xFFF7F7F7),
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 14),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(14),
                             borderSide: BorderSide.none,
@@ -209,18 +207,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Row(
                     children: [
-                      _LeadingIcon(icon: Icons.calendar_month_outlined),
+                      _LeadingIcon(icon: Icons.calendar_month_outlined, primaryColor: primaryColor),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 14),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                           decoration: BoxDecoration(
                             color: const Color(0xFFF7F7F7),
                             borderRadius: BorderRadius.circular(14),
                           ),
                           child: Text(
                             formattedDate,
+                            textAlign: context.locale.languageCode == "ar" ? TextAlign.right : TextAlign.left,
                             style: const TextStyle(fontSize: 15.5),
                           ),
                         ),
@@ -235,7 +233,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         ),
       );
 
-  Widget _buildSaveButton(AuthViewModel vm) => Positioned(
+  Widget _buildSaveButton(AuthViewModel vm, Color primaryColor) => Positioned(
         left: 16,
         right: 16,
         bottom: 24,
@@ -244,19 +242,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           child: ElevatedButton.icon(
             onPressed: vm.isLoading ? null : _onSave,
             icon: const Icon(Icons.save_alt, color: Colors.white),
-            label: const Text(
-              'Enregistrer',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                fontSize: 16,
-              ),
+            label: Text(
+              'save'.tr(),
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16),
             ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFEE6B33),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
+              backgroundColor: primaryColor,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               elevation: 0,
             ),
           ),
@@ -266,24 +258,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   void _onSave() {
     if (!_formKey.currentState!.validate()) return;
     if (selectedDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sélectionnez une date de naissance')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('select_birthdate'.tr())));
       return;
     }
     if (completePhoneNumber == null || completePhoneNumber!.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Entrez un numéro de téléphone valide')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('enter_valid_phone'.tr())));
       return;
     }
-   final data = {
-  'firstName': _usernameController.text.trim().split(' ').first,
-  'lastName': _usernameController.text.trim().split(' ').skip(1).join(' '),
-  'email': _emailController.text.trim(),
-  'mobile': completePhoneNumber!,
-  'dateOfBirth': selectedDate!.toIso8601String(),
-};
+    final data = {
+      'firstName': _usernameController.text.trim().split(' ').first,
+      'lastName': _usernameController.text.trim().split(' ').skip(1).join(' '),
+      'email': _emailController.text.trim(),
+      'mobile': completePhoneNumber!,
+      'dateOfBirth': selectedDate!.toIso8601String(),
+    };
 
     context.read<AuthViewModel>().updateUserProfile(data, context);
   }
@@ -296,6 +284,7 @@ class _Field extends StatelessWidget {
     required this.label,
     required this.controller,
     required this.icon,
+    required this.primaryColor,
     this.keyboardType,
     this.validator,
   });
@@ -303,6 +292,7 @@ class _Field extends StatelessWidget {
   final String label;
   final TextEditingController controller;
   final IconData icon;
+  final Color primaryColor;
   final TextInputType? keyboardType;
   final String? Function(String?)? validator;
 
@@ -313,13 +303,14 @@ class _Field extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          _LeadingIcon(icon: icon),
+          _LeadingIcon(icon: icon, primaryColor: primaryColor),
           const SizedBox(width: 8),
           Expanded(
             child: TextFormField(
               controller: controller,
               validator: validator,
               keyboardType: keyboardType,
+              textAlign: context.locale.languageCode == "ar" ? TextAlign.right : TextAlign.left,
               decoration: InputDecoration(
                 hintText: label,
                 isDense: true,
@@ -340,8 +331,9 @@ class _Field extends StatelessWidget {
 }
 
 class _LeadingIcon extends StatelessWidget {
-  const _LeadingIcon({required this.icon});
+  const _LeadingIcon({required this.icon, required this.primaryColor});
   final IconData icon;
+  final Color primaryColor;
 
   @override
   Widget build(BuildContext context) {
@@ -349,10 +341,10 @@ class _LeadingIcon extends StatelessWidget {
       width: 42,
       height: 42,
       decoration: BoxDecoration(
-        color: const Color(0xFFFFE8D8),
+        color: primaryColor.withOpacity(0.15),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Icon(icon, color: const Color(0xFFEE6B33)),
+      child: Icon(icon, color: primaryColor),
     );
   }
 }

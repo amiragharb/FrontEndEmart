@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:frontendemart/viewmodels/auth_viewmodel.dart';
+import 'package:frontendemart/viewmodels/Config_ViewModel.dart';
 import 'package:provider/provider.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({super.key});
@@ -20,6 +22,10 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<AuthViewModel>();
+    final config = context.watch<ConfigViewModel>().config;
+    final primaryColor = (config?.ciPrimaryColor != null && config!.ciPrimaryColor!.isNotEmpty)
+        ? Color(int.parse('FF${config.ciPrimaryColor}', radix: 16))
+        : const Color(0xFFEE6B33);
 
     return Scaffold(
       backgroundColor: const Color(0xFFFCF4F4),
@@ -27,15 +33,15 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         elevation: 0,
         backgroundColor: Colors.transparent,
         centerTitle: true,
-        title: const Text(
-          'Changer le mot de passe',
+        title: Text(
+          'change_password'.tr(),
           style: TextStyle(
-            color: Color(0xFF333333),
+            color: primaryColor,
             fontWeight: FontWeight.w700,
             fontSize: 20,
           ),
         ),
-        iconTheme: const IconThemeData(color: Colors.black87),
+        iconTheme: IconThemeData(color: primaryColor),
       ),
       body: vm.isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -46,14 +52,14 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
                     child: Column(
                       children: [
-                        // Petit header “pill”
+                        // Petit header
                         Container(
                           width: double.infinity,
                           padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(24),
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFFFF5F0), Color.fromARGB(255, 215, 146, 117)],
+                            gradient: LinearGradient(
+                              colors: [Colors.white.withOpacity(0.9), primaryColor.withOpacity(0.3)],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
@@ -70,15 +76,15 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                                   color: Colors.white,
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: Icon(Icons.lock_reset, color: Colors.orange.shade700),
+                                child: Icon(Icons.lock_reset, color: primaryColor),
                               ),
                               const SizedBox(width: 12),
-                              const Expanded(
+                              Expanded(
                                 child: Text(
-                                  'Sécurise ton compte',
+                                  'secure_account'.tr(),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w700,
                                   ),
@@ -90,7 +96,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 
                         const SizedBox(height: 16),
 
-                        // Carte formulaire
+                        // Formulaire
                         Container(
                           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                           decoration: BoxDecoration(
@@ -105,16 +111,18 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                             child: Column(
                               children: [
                                 _PasswordRow(
-                                  label: 'Nouveau mot de passe',
+                                  label: 'new_password'.tr(),
                                   controller: _passwordController,
                                   obscure: _obscurePassword,
+                                  primaryColor: primaryColor,
                                   onToggle: () => setState(() => _obscurePassword = !_obscurePassword),
                                 ),
                                 const _DividerInset(),
                                 _PasswordRow(
-                                  label: 'Confirmer le mot de passe',
+                                  label: 'confirm_password'.tr(),
                                   controller: _confirmController,
                                   obscure: _obscureConfirm,
+                                  primaryColor: primaryColor,
                                   onToggle: () => setState(() => _obscureConfirm = !_obscureConfirm),
                                   confirmAgainst: _passwordController,
                                 ),
@@ -127,7 +135,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     ),
                   ),
 
-                  // Bouton sticky
+                  // Bouton
                   Positioned(
                     left: 16,
                     right: 16,
@@ -137,16 +145,16 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                       child: ElevatedButton.icon(
                         onPressed: vm.isLoading ? null : _submit,
                         icon: const Icon(Icons.save_alt, color: Colors.white),
-                        label: const Text(
-                          'Enregistrer',
-                          style: TextStyle(
+                        label: Text(
+                          'save'.tr(),
+                          style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w700,
                             fontSize: 16,
                           ),
                         ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFEE6B33),
+                          backgroundColor: primaryColor,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),
@@ -176,6 +184,7 @@ class _PasswordRow extends StatelessWidget {
     required this.controller,
     required this.obscure,
     required this.onToggle,
+    required this.primaryColor,
     this.confirmAgainst,
   });
 
@@ -183,6 +192,7 @@ class _PasswordRow extends StatelessWidget {
   final TextEditingController controller;
   final bool obscure;
   final VoidCallback onToggle;
+  final Color primaryColor;
   final TextEditingController? confirmAgainst;
 
   @override
@@ -192,7 +202,7 @@ class _PasswordRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const _LeadingIcon(icon: Icons.lock_outline),
+          _LeadingIcon(icon: Icons.lock_outline, primaryColor: primaryColor),
           const SizedBox(width: 8),
           Expanded(
             child: TextFormField(
@@ -200,10 +210,10 @@ class _PasswordRow extends StatelessWidget {
               obscureText: obscure,
               validator: (v) {
                 if (v == null || v.trim().length < 6) {
-                  return 'Au moins 6 caractères';
+                  return 'min_characters'.tr();
                 }
                 if (confirmAgainst != null && v.trim() != confirmAgainst!.text.trim()) {
-                  return 'Les mots de passe ne correspondent pas';
+                  return 'passwords_not_match'.tr();
                 }
                 return null;
               },
@@ -231,8 +241,9 @@ class _PasswordRow extends StatelessWidget {
 }
 
 class _LeadingIcon extends StatelessWidget {
-  const _LeadingIcon({required this.icon});
+  const _LeadingIcon({required this.icon, required this.primaryColor});
   final IconData icon;
+  final Color primaryColor;
 
   @override
   Widget build(BuildContext context) {
@@ -240,10 +251,10 @@ class _LeadingIcon extends StatelessWidget {
       width: 42,
       height: 42,
       decoration: BoxDecoration(
-        color: const Color(0xFFFFE8D8),
+        color: primaryColor.withOpacity(0.15),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: const Icon(Icons.lock_outline, color: Color(0xFFEE6B33)),
+      child: Icon(icon, color: primaryColor),
     );
   }
 }

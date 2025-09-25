@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:frontendemart/views/homeAdmin/custom_bottom_navbar.dart';
 import '../../models/category_model.dart';
 import '../Items/CategoryItemsScreen.dart';
+import 'package:frontendemart/viewmodels/Config_ViewModel.dart';
+import 'package:provider/provider.dart';
 
 class AllCategoriesScreen extends StatelessWidget {
   final List<Category> categories;
@@ -9,12 +12,25 @@ class AllCategoriesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const primaryColor = Color(0xFFEE6B33);
     final locale = EasyLocalization.of(context)!.locale.languageCode;
+
+    // Récupération config backend
+    final configVM = Provider.of<ConfigViewModel>(context);
+    final config = configVM.config;
+
+    // Couleur primaire dynamique avec fallback
+    final primaryColor = (config?.ciPrimaryColor != null && config!.ciPrimaryColor!.isNotEmpty)
+        ? Color(int.parse('FF${config.ciPrimaryColor}', radix: 16))
+        : const Color(0xFFEE6B33);
+
     return Scaffold(
       appBar: AppBar(
-        title: Text('all_categories'.tr()),
+        title: Text(
+          'all_categories'.tr(),
+          style: const TextStyle(color: Colors.white), // titre AppBar en blanc
+        ),
         backgroundColor: primaryColor,
+        iconTheme: const IconThemeData(color: Colors.white), // icônes de la AppBar en blanc
       ),
       body: GridView.builder(
         padding: const EdgeInsets.all(16),
@@ -34,14 +50,14 @@ class AllCategoriesScreen extends StatelessWidget {
                 MaterialPageRoute(
                   builder: (_) => CategoryItemsScreen(
                     categoryId: cat.id.toString(),
-                    categoryName: locale == 'ar' ? cat.nameAr : cat.nameEn,
+                    categoryName: locale == 'ar' ? cat.nameAr ?? '' : cat.nameEn ?? '',
                   ),
                 ),
               );
             },
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Colors.white, // fond de la carte
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
@@ -73,14 +89,14 @@ class AllCategoriesScreen extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     child: Text(
-                      locale == 'ar' ? cat.nameAr : cat.nameEn,
+                      locale == 'ar' ? cat.nameAr ?? '' : cat.nameEn ?? '',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
-                        color: Colors.black87,
+                        color: primaryColor, // texte catégorie en couleur primaire
                       ),
                     ),
                   ),
@@ -90,6 +106,7 @@ class AllCategoriesScreen extends StatelessWidget {
           );
         },
       ),
+      bottomNavigationBar: const CustomBottomNavBar(currentIndex: 0),
     );
   }
 }

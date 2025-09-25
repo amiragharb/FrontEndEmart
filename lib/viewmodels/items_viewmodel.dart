@@ -9,7 +9,8 @@ import 'package:frontendemart/models/video_model.dart';
 import 'package:http/http.dart' as http;
 import '../services/api_service.dart';
 
-class ItemsViewModel extends ChangeNotifier {
+class ItemsViewModel extends ChangeNotifier
+ {
   final ApiService _apiService = ApiService();
   
   // Collections principales
@@ -30,6 +31,7 @@ class ItemsViewModel extends ChangeNotifier {
   String? _searchQuery;
   String _categoryFilter = "All";
   String _sortOption = "None";
+  List<Category> _topBrandsOrCategories = []; // <- Nouveau champ
 
   // --- Getters ---
   List<SellerItem> get items => _items;
@@ -39,6 +41,9 @@ class ItemsViewModel extends ChangeNotifier {
   List<Datasheet> get datasheets => _datasheets;
   List<VideoModel> get videos => _videos;
   
+
+  
+  List<Category> get topBrandsOrCategories => _topBrandsOrCategories; 
   // Getters pour les ratings du produit actuel
   double get averageRating => _currentRatingData?.averageRating ?? 0.0;
   int get totalRatings => _currentRatingData?.totalRatings ?? 0;
@@ -263,8 +268,29 @@ class ItemsViewModel extends ChangeNotifier {
   bool isCurrentProduct(int sellerItemId) {
     return _currentProductId == sellerItemId;
   }
-}
+  // --- Charger les top brands ou catégories ---
+  Future<void> loadTopBrandsOrCategories({int limit = 6}) async {
+    try {
+      final url = Uri.parse('${ApiConfig.baseUrl}/top-brands?limit=$limit');
+      final response = await http.get(url);
 
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body)['data'] as List;
+        _topBrandsOrCategories =
+            data.map((json) => Category.fromJson(json)).toList();
+        debugPrint("Top brands/categories chargés: ${_topBrandsOrCategories.length}");
+      } else {
+        _topBrandsOrCategories = [];
+        debugPrint("Erreur loadTopBrandsOrCategories: statusCode=${response.statusCode}");
+      }
+    } catch (e) {
+      _topBrandsOrCategories = [];
+      debugPrint("Erreur loadTopBrandsOrCategories: $e");
+    } finally {
+      notifyListeners();
+    }
+  }
+}
 // --- Classe pour encapsuler les données de rating d'un produit ---
 class ProductRatingData {
   final double averageRating;

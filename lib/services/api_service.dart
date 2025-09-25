@@ -140,5 +140,15 @@ Future<List<VideoModel>> fetchVideos(int medicineId) async {
     return [];
   }
 }
+ Future<List<Category>> getTopBrandsOrCategories({int limit = 6}) async {
+    final url = Uri.parse('$baseUrl/items/top-brands');
+    final response = await http.get(url);
 
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body)['data'] as List;
+      return data.map((json) => Category.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load top brands or categories');
+    }
+  }
 }

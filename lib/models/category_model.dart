@@ -4,6 +4,7 @@ class Category {
   final String nameAr;
   final bool? showInMenu;
   final bool? showInHome;
+  final String logo; // champ pour l'image
 
   Category({
     required this.id,
@@ -11,6 +12,7 @@ class Category {
     required this.nameAr,
     this.showInMenu,
     this.showInHome,
+    required this.logo, // <-- il faut l'ajouter ici
   });
 
   factory Category.fromJson(Map<String, dynamic> json) {
@@ -20,6 +22,7 @@ class Category {
       nameAr: json['nameAr'] ?? '',
       showInMenu: json['showInMenu'],
       showInHome: json['showInHome'],
+      logo: json['logo'] ?? '', // <-- fallback si null
     );
   }
 }

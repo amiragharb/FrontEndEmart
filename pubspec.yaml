@@ -32,6 +32,8 @@ dependencies:
   video_player: ^2.7.0
   chewie: ^1.8.1
   easy_localization: ^3.0.8
+  geolocator: ^10.1.0
+  geocoding: ^2.1.0 
 dev_dependencies:
   flutter_test:
     sdk: flutter

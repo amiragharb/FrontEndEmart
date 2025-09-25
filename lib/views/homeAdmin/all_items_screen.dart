@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:frontendemart/views/homeAdmin/custom_bottom_navbar.dart';
 import '../Items/product_details_screen.dart';
+import 'package:frontendemart/viewmodels/Config_ViewModel.dart';
+import 'package:provider/provider.dart';
 
 class AllItemsScreen extends StatelessWidget {
   final List items;
@@ -9,11 +12,22 @@ class AllItemsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-  final locale = EasyLocalization.of(context)!.locale.languageCode;
-    return Scaffold(
+    final locale = EasyLocalization.of(context)!.locale.languageCode;
+
+    // Récupération de la config backend
+    final configVM = Provider.of<ConfigViewModel>(context);
+    final config = configVM.config;
+
+    // Couleur primaire dynamique avec fallback
+    final primaryColor = (config?.ciPrimaryColor != null && config!.ciPrimaryColor!.isNotEmpty)
+        ? Color(int.parse('FF${config.ciPrimaryColor}', radix: 16))
+        : const Color(0xFFEE6B33);
+
+    return Scaffold
+    (
       appBar: AppBar(
         title: Text(title),
-        backgroundColor: const Color(0xFFEE6B33),
+        backgroundColor: primaryColor,
       ),
       body: GridView.builder(
         padding: const EdgeInsets.all(16),
@@ -53,7 +67,7 @@ class AllItemsScreen extends StatelessWidget {
                 children: [
                   Expanded(
                     child: ClipRRect(
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
                       child: Container(
                         color: Colors.grey.shade50,
                         width: double.infinity,
@@ -67,7 +81,7 @@ class AllItemsScreen extends StatelessWidget {
                             width: double.infinity,
                             height: double.infinity,
                             color: Colors.grey.shade100,
-                            child: Center(
+                            child: const Center(
                               child: Icon(
                                 Icons.image_not_supported,
                                 size: 60,
@@ -90,16 +104,16 @@ class AllItemsScreen extends StatelessWidget {
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
-                        color: Colors.black87,
+                        color: Colors.white,
                       ),
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     "${item.price.toInt()} ${tr('egp')}",
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: Colors.green,
+                      color: primaryColor, // <- couleur dynamique pour le prix
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -109,6 +123,8 @@ class AllItemsScreen extends StatelessWidget {
           );
         },
       ),
+              bottomNavigationBar: const CustomBottomNavBar(currentIndex: 0),
+
     );
   }
 }

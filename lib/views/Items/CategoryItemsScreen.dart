@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:frontendemart/viewmodels/items_viewmodel.dart';
 import 'package:frontendemart/views/homeAdmin/custom_bottom_navbar.dart';
+import 'package:frontendemart/viewmodels/Config_ViewModel.dart';
 import 'package:provider/provider.dart';
 import 'package:easy_localization/easy_localization.dart';
 
@@ -14,22 +15,38 @@ class CategoryItemsScreen extends StatelessWidget {
     required this.categoryName,
   });
 
-  static const _primaryColor = Color(0xFFEE6B33);
+  // Fonction utilitaire pour parser la couleur depuis la config
+  Color _parsePrimaryColor(ConfigViewModel configVM) {
+    final colorString = configVM.config?.ciPrimaryColor;
+    if (colorString != null && colorString.isNotEmpty) {
+      try {
+        return Color(int.parse('FF${colorString.replaceAll('#', '')}', radix: 16));
+      } catch (_) {}
+    }
+    return const Color(0xFFEE6B33); // fallback
+  }
 
   @override
   Widget build(BuildContext context) {
     final locale = context.locale.languageCode;
+    final configVM = context.watch<ConfigViewModel>();
+    final primaryColor = _parsePrimaryColor(configVM);
+
     return ChangeNotifierProvider(
       create: (_) => ItemsViewModel()..loadItems(category: categoryId),
       child: Scaffold(
         backgroundColor: const Color(0xFFF8FAFC),
         appBar: AppBar(
-          backgroundColor: _primaryColor,
+          backgroundColor: primaryColor,
           title: Text(
             categoryName,
-            style: const TextStyle(fontWeight: FontWeight.bold),
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.white, // titre en blanc
+            ),
           ),
           centerTitle: true,
+          iconTheme: const IconThemeData(color: Colors.white), // icône retour en blanc
         ),
         body: Consumer<ItemsViewModel>(
           builder: (context, vm, child) {
@@ -37,7 +54,7 @@ class CategoryItemsScreen extends StatelessWidget {
               return const Center(child: CircularProgressIndicator());
             }
             if (vm.items.isEmpty) {
-              return _buildEmptyState();
+              return _buildEmptyState(primaryColor);
             }
             return GridView.builder(
               padding: const EdgeInsets.all(16),
@@ -50,7 +67,7 @@ class CategoryItemsScreen extends StatelessWidget {
               itemCount: vm.items.length,
               itemBuilder: (context, index) {
                 final item = vm.items[index];
-                return _buildModernProductCard(item, locale);
+                return _buildModernProductCard(item, locale, primaryColor);
               },
             );
           },
@@ -60,7 +77,7 @@ class CategoryItemsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildModernProductCard(item, String locale) {
+  Widget _buildModernProductCard(item, String locale, Color primaryColor) {
     final hasDiscount = item.priceWas != null && item.priceWas > item.price;
     final discountPercent = hasDiscount
         ? (((item.priceWas - item.price) / item.priceWas) * 100).round()
@@ -143,7 +160,7 @@ class CategoryItemsScreen extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: Colors.green.shade50,
+                          color: primaryColor.withOpacity(0.15),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -151,7 +168,7 @@ class CategoryItemsScreen extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: Colors.green.shade700,
+                            color: primaryColor,
                           ),
                         ),
                       ),
@@ -177,12 +194,12 @@ class CategoryItemsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(Color primaryColor) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.inventory_2_outlined, size: 80, color: _primaryColor),
+          Icon(Icons.inventory_2_outlined, size: 80, color: primaryColor),
           const SizedBox(height: 16),
           Text(
             'no_products_found'.tr(),

@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:frontendemart/change_langue/change_language.dart';
+import 'package:frontendemart/viewmodels/Config_ViewModel.dart';
 import 'package:intl/intl.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:provider/provider.dart';
@@ -17,6 +18,7 @@ class SignUpScreen extends StatefulWidget {
 }
 
 class _SignUpScreenState extends State<SignUpScreen> {
+  
   final _formKey = GlobalKey<FormState>();
   final fullNameController = TextEditingController();
   final emailController = TextEditingController();
@@ -59,325 +61,259 @@ class _SignUpScreenState extends State<SignUpScreen> {
     return {'first': first, 'last': last};
   }
 
-  @override
+@override
 Widget build(BuildContext context) {
-  // Listen to locale to force rebuild on language change
-  final _ = context.locale;
+  final _ = context.locale; // pour rebuild si langue change
+  final screen = MediaQuery.of(context).size;
+
+  // Récupération config backend
+  final configVM = Provider.of<ConfigViewModel>(context);
+  final config = configVM.config;
+
+  // Couleurs backend ou fallback
+  final primaryColor = (config?.ciPrimaryColor != null && config!.ciPrimaryColor!.isNotEmpty)
+      ? Color(int.parse('FF${config.ciPrimaryColor}', radix: 16))
+      : const Color(0xFFEE6B33);
+
+  final secondaryColor = (config?.ciSecondaryColor != null && config!.ciSecondaryColor!.isNotEmpty)
+      ? Color(int.parse('FF${config.ciSecondaryColor}', radix: 16))
+      : Colors.white;
+
   final formattedDate = selectedDate != null
       ? DateFormat('yyyy-MM-dd').format(selectedDate!)
       : 'dob'.tr();
 
-  return Scaffold
-(
-    backgroundColor: Colors.white,
+  return Scaffold(
+    backgroundColor: secondaryColor,
     body: Stack(
-  children: [
-    // fond
-    Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFFFFEFE6), Color(0xFFFDE2D6)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+      children: [
+        // Background gradient
+        Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [secondaryColor.withOpacity(.9), secondaryColor.withOpacity(.6)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
         ),
-      ),
-    ),
 
-    // blobs décoratifs
-    Positioned(
-      top: -80,
-      left: -40,
-      child: _Blob(color: const Color(0xFFFFA26B).withOpacity(.25), size: 220),
-    ),
-    Positioned(
-      bottom: -60,
-      right: -30,
-      child: _Blob(color: const Color(0xFF2E64C5).withOpacity(.18), size: 240),
-    ),
-    
-         // Removed SizedBox to ensure language switcher is clickable
-
-    // 🌐 bouton langue en haut à droite
-    Positioned(
-      top: 16,
-      right: 16,
-      child: Material(
-        color: Colors.transparent,
-        shape: const CircleBorder(),
-        child: Consumer<LocaleProvider>(
-          builder: (context, localeProvider, _) {
-            return PopupMenuButton<Locale>(
-              onSelected: (locale) async {
-                await EasyLocalization.of(context)!.setLocale(locale);
-                localeProvider.setLocale(locale);
-              },
-              tooltip: 'change_language'.tr(),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: Locale('en'),
-                  child: Row(
-                    children: [
-                      Text("🇺🇸 "),
-                      SizedBox(width: 8),
-                      Text("English"),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: Locale('ar'),
-                  child: Row(
-                    children: [
-                      Text("🇪🇬 "),
-                      SizedBox(width: 8),
-                      Text("العربية"),
-                    ],
-                  ),
-                ),
-              ],
-              child: Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEE6B33),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.15),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.language,
-                  color: Colors.white,
-                ),
-              ),
-            );
-          },
+        // Blobs décoratifs
+        Positioned(
+          top: -80,
+          left: -40,
+          child: _Blob(color: primaryColor.withOpacity(.25), size: 220),
         ),
-      ),
-    ),
-         const SizedBox(height: 16),
-
- 
         SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-            child: Column(
-              children: [
-                const SizedBox(height: 8),
-                const Image(
-                  image: AssetImage('assets/logo_BlueTransparent.png'),
-                  height: 110,
-                ),
-                const SizedBox(height: 16),
+  child: Padding(
+    padding: const EdgeInsets.all(16.0),
+    child: Align(
+      alignment: Alignment.topRight,
+      child: Consumer<LocaleProvider>(
+        builder: (context, localeProvider, _) {
+          final isEnglish = context.locale.languageCode == 'en';
+          return GestureDetector(
+            onTap: () async {
+              final newLocale = isEnglish ? const Locale('ar') : const Locale('en');
+              await EasyLocalization.of(context)!.setLocale(newLocale);
+              localeProvider.setLocale(newLocale);
+            },
+            child: Text(
+              isEnglish ? "🇺🇸 English" : "🇪🇬 العربية",
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          );
+        },
+      ),
+    ),
+  ),
+)
+,
 
-                // carte verre
-                _GlassCard(
-                  padding: const EdgeInsets.fromLTRB(22, 22, 22, 26),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      children: [
-                        // tabs
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            GestureDetector(
-                              onTap: () {
-                                Navigator.pushReplacement(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (_) => const LoginScreen()),
-                                );
-                              },
-                child: Text(
-                  'login'.tr(),
-                  style: const TextStyle(
-                    fontSize: 16, color: Colors.black87),
+
+
+        // Bouton langue en haut à droite
+        
+
+        // Formulaire
+        SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Logo dynamique
+                  Image.network(
+                    config?.ciLogo ?? 'assets/logo_BlueTransparent.png',
+                    height: 110,
                   ),
-                            ),
-                            const SizedBox(width: 20),
-                            _GlassTab(
-                              label: 'signup'.tr(),
-                              isActive: true,
-                              underlineColor: const Color(0xFFEE6B33),
-                            ),
-                          ],
-                        ),
+                  const SizedBox(height: 16),
 
-                        const SizedBox(height: 22),
-                        _GlassTextField(
-                          controller: fullNameController,
-                          hint: 'fullName'.tr(),
-                          icon: Icons.person,
-                          validator: (v) {
-                            final text = (v ?? '').trim();
-                            if (text.isEmpty) return 'requiredField'.tr();
-                            if (!RegExp(r'^\S+\s+\S+').hasMatch(text)) {
-                              return 'enterFullName'.tr();
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 12),
-                        _GlassTextField(
-                          controller: emailController,
-                          hint: 'email'.tr(),
-                          icon: Icons.email,
-                          keyboardType: TextInputType.emailAddress,
-                          validator: _required,
-                        ),
-                        const SizedBox(height: 12),
-
-                       _GlassPhoneField(
-  controller: phoneController,
-  onChanged: (v) => setState(() => completePhoneNumber = v),
-  hint: 'phoneNumber'.tr(),
-),
-
-                        const SizedBox(height: 12),
-
-                        _GlassTextField(
-                          controller: passwordController,
-                          hint: 'password'.tr(),
-                          icon: Icons.lock,
-                          obscure: _obscurePassword,
-                          validator: _required,
-                          trailing: IconButton(
-                            icon: Icon(
-                              _obscurePassword
-                                  ? Icons.visibility
-                                  : Icons.visibility_off,
-                              color: Colors.black87,
-                            ),
-                            onPressed: () => setState(
-                                () => _obscurePassword = !_obscurePassword),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        _GlassTextField(
-                          controller: confirmPasswordController,
-                          hint: 'rePassword'.tr(),
-                          icon: Icons.lock_outline,
-                          obscure: _obscureConfirm,
-                          validator: (v) {
-                            if (v == null || v.trim().isEmpty) {
-                              return 'requiredField'.tr();
-                            }
-                            if (v != passwordController.text) {
-                              return 'passwordMismatch'.tr();
-                            }
-                            return null;
-                          },
-                          trailing: IconButton(
-                            icon: Icon(
-                              _obscureConfirm
-                                  ? Icons.visibility
-                                  : Icons.visibility_off,
-                              color: Colors.black87,
-                            ),
-                            onPressed: () =>
-                                setState(() => _obscureConfirm = !_obscureConfirm),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-
-                        // date
-                        _GlassTappable(
-                          onTap: () => _pickDate(context),
-                          child: Row(
+                  // Carte verre
+                  _GlassCard(
+                    padding: const EdgeInsets.fromLTRB(22, 22, 22, 26),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        children: [
+                          // Tabs
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(Icons.calendar_month,
-                                  color: Colors.black87),
-                              const SizedBox(width: 12),
-                              Text(formattedDate,
-                                  style: const TextStyle(fontSize: 16)),
+                              GestureDetector(
+                                onTap: () {
+                                  Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                                  );
+                                },
+                                child: Text(
+                                  'login'.tr(),
+                                  style: const TextStyle(fontSize: 16, color: Colors.black87),
+                                ),
+                              ),
+                              const SizedBox(width: 20),
+                              _GlassTab(
+                                label: 'signup'.tr(),
+                                isActive: true,
+                                underlineColor: primaryColor, // dynamique
+                              ),
                             ],
                           ),
-                        ),
+                          const SizedBox(height: 22),
 
-                        const SizedBox(height: 22),
-                        _GlassButton(
-                          label: 'signUpBtn'.tr(),
-                          color: const Color(0xFFEE6B33),
-                          onPressed: () {
-                            if (_formKey.currentState!.validate()) {
-                              if (selectedDate == null) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('selectDob'.tr())),
-                                );
-                                return;
-                              }
-                              if (completePhoneNumber == null || completePhoneNumber!.isEmpty) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('validPhone'.tr())),
-                                );
-                                return;
-                              }
-                              final isEgypt = completePhoneNumber!.startsWith('+20');
-                              if (isEgypt) {
-                                final egyptianRegex = RegExp(r'^(?:\+20|0)(10|11|12|15)\d{8}$');
-                                if (!egyptianRegex.hasMatch(completePhoneNumber!)) {
+                          // Champs
+                          _GlassTextField(
+                            controller: fullNameController,
+                            hint: 'fullName'.tr(),
+                            icon: Icons.person,
+                            validator: (v) {
+                              final text = (v ?? '').trim();
+                              if (text.isEmpty) return 'requiredField'.tr();
+                              if (!RegExp(r'^\S+\s+\S+').hasMatch(text)) return 'enterFullName'.tr();
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          _GlassTextField(
+                            controller: emailController,
+                            hint: 'email'.tr(),
+                            icon: Icons.email,
+                            keyboardType: TextInputType.emailAddress,
+                            validator: _required,
+                          ),
+                          const SizedBox(height: 12),
+                          _GlassPhoneField(
+                            controller: phoneController,
+                            onChanged: (v) => setState(() => completePhoneNumber = v),
+                            hint: 'phoneNumber'.tr(),
+                          ),
+                          const SizedBox(height: 12),
+                          _GlassTextField(
+                            controller: passwordController,
+                            hint: 'password'.tr(),
+                            icon: Icons.lock,
+                            obscure: _obscurePassword,
+                            validator: _required,
+                            trailing: IconButton(
+                              icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off,
+                                  color: Colors.black87),
+                              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          _GlassTextField(
+                            controller: confirmPasswordController,
+                            hint: 'rePassword'.tr(),
+                            icon: Icons.lock_outline,
+                            obscure: _obscureConfirm,
+                            validator: (v) {
+                              if (v == null || v.trim().isEmpty) return 'requiredField'.tr();
+                              if (v != passwordController.text) return 'passwordMismatch'.tr();
+                              return null;
+                            },
+                            trailing: IconButton(
+                              icon: Icon(_obscureConfirm ? Icons.visibility : Icons.visibility_off,
+                                  color: Colors.black87),
+                              onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+
+                          // Date
+                          _GlassTappable(
+                            onTap: () => _pickDate(context),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.calendar_month, color: Colors.black87),
+                                const SizedBox(width: 12),
+                                Text(formattedDate, style: const TextStyle(fontSize: 16)),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 22),
+
+                          // Bouton Sign Up
+                          _GlassButton(
+                            label: 'signUpBtn'.tr(),
+                            color: primaryColor, // dynamique
+                            onPressed: () {
+                              if (_formKey.currentState!.validate()) {
+                                if (selectedDate == null) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('validEgyptPhone'.tr())),
+                                    SnackBar(content: Text('selectDob'.tr())),
                                   );
                                   return;
                                 }
-                              } else {
-                                if (completePhoneNumber!.isEmpty) {
+                                if (completePhoneNumber == null || completePhoneNumber!.isEmpty) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(content: Text('validPhone'.tr())),
                                   );
                                   return;
                                 }
-                              }
-                              final parts = _splitName(fullNameController.text);
-                              final user = UserModel(
-                                email: emailController.text.trim(),
-                                password: passwordController.text.trim(),
-                                firstName: parts['first'] ?? '',
-                                lastName: parts['last'] ?? '',
-                                mobile: completePhoneNumber!,
-                                dateOfBirth: DateFormat('yyyy-MM-dd').format(selectedDate!),
-                              );
-                              Provider.of<AuthViewModel>(context, listen: false).signup(user, context);
-                            }
-                          },
-                        ),
-
-                        const SizedBox(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text('${'alreadyAccount'.tr()} '),
-                            GestureDetector(
-                              onTap: () {
-                                Navigator.pushReplacement(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (_) => const LoginScreen()),
+                                final parts = _splitName(fullNameController.text);
+                                final user = UserModel(
+                                  email: emailController.text.trim(),
+                                  password: passwordController.text.trim(),
+                                  firstName: parts['first'] ?? '',
+                                  lastName: parts['last'] ?? '',
+                                  mobile: completePhoneNumber!,
+                                  dateOfBirth: DateFormat('yyyy-MM-dd').format(selectedDate!),
                                 );
-                              },
-                              child: Text(
-                                'login'.tr(),
-                                style: const TextStyle(
-                                  color: Color(0xFFEE6B33),
-                                  fontWeight: FontWeight.bold,
+                                Provider.of<AuthViewModel>(context, listen: false).signup(user, context);
+                              }
+                            },
+                          ),
+
+                          const SizedBox(height: 16),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text('${'alreadyAccount'.tr()} '),
+                              GestureDetector(
+                                onTap: () {
+                                  Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                                  );
+                                },
+                                child: Text(
+                                  'login'.tr(),
+                                  style: TextStyle(
+                                    color: primaryColor, // dynamique
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -385,7 +321,6 @@ Widget build(BuildContext context) {
     ),
   );
 }
-
 
   String? _required(String? v) =>
       v == null || v.trim().isEmpty ? 'Required field' : null;

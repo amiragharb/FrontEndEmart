@@ -2,7 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:frontendemart/change_langue/change_language.dart';
-import 'package:frontendemart/l10n/app_localizations.dart';
+import 'package:frontendemart/viewmodels/Config_ViewModel.dart';
 import 'package:frontendemart/viewmodels/auth_viewmodel.dart';
 import 'package:provider/provider.dart';
 import 'signup_screen.dart';
@@ -39,285 +39,263 @@ class _LoginScreenState extends State<LoginScreen> {
   final _egLocalRx = RegExp(r'^0(10|11|12|15)\d{8}$'); // pour normaliser en +20...
 
   @override
-  Widget build(BuildContext context) {
-    // Listen to locale to force rebuild on language change
-    final _ = context.locale;
-    final screen = MediaQuery.of(context).size;
+Widget build(BuildContext context) {
+  // Listen to locale to force rebuild on language change
+  final _ = context.locale;
+  final screen = MediaQuery.of(context).size;
 
-    return Scaffold(
-      backgroundColor: Colors.white,
+  // Récupération config backend
+  final configVM = Provider.of<ConfigViewModel>(context);
+  final config = configVM.config;
 
-      body: Stack
-      (
-        children: [
-          // background
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFFFFEFE6), Color(0xFFFDE2D6)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+  // Couleurs backend ou fallback
+  final primaryColor = (config?.ciPrimaryColor != null && config!.ciPrimaryColor!.isNotEmpty)
+      ? Color(int.parse('FF${config.ciPrimaryColor}', radix: 16))
+      : const Color(0xFFEE6B33);
+
+  final secondaryColor = (config?.ciSecondaryColor != null && config!.ciSecondaryColor!.isNotEmpty)
+      ? Color(int.parse('FF${config.ciSecondaryColor}', radix: 16))
+      : Colors.white;
+
+  return Scaffold(
+    backgroundColor: secondaryColor,
+    body: Stack(
+      children: [
+        // Background gradient
+        Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [secondaryColor.withOpacity(.9), secondaryColor.withOpacity(.6)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
           ),
-          Positioned(
-            top: -80,
-            left: -40,
-            child:
-                _Blob(color: const Color(0xFFFFA26B).withOpacity(.25), size: 220),
-          ),
-          Positioned(
-            bottom: -60,
-            right: -30,
-            child:
-                _Blob(color: const Color(0xFF2E64C5).withOpacity(.18), size: 240),
-          ),
-         const SizedBox(height: 16),
-SafeArea(
-  child:Align(
-  alignment: Alignment.topRight,
+        ),
+        Positioned(
+          top: -80,
+          left: -40,
+          child: _Blob(color: primaryColor.withOpacity(.25), size: 220),
+        ),
+        Positioned(
+          bottom: -60,
+          right: -30,
+          child: _Blob(color: primaryColor.withOpacity(.18), size: 240),
+        ),
+        const SizedBox(height: 16),
+        SafeArea(
   child: Padding(
     padding: const EdgeInsets.all(16.0),
-    child: Consumer<LocaleProvider>(
-      builder: (context, localeProvider, _) {
-        return PopupMenuButton<Locale>(
-          onSelected: (locale) async {
-            await EasyLocalization.of(context)!.setLocale(locale);
-            localeProvider.setLocale(locale);
-          },
-          tooltip: "Change language",
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-          itemBuilder: (context) => [
-            PopupMenuItem(
-              value: const Locale('en'),
-              child: Row(
-                children: [
-                  const Text("🇺🇸 "), // flag emoji
-                  const SizedBox(width: 8),
-                  const Text("English"),
-                ],
+    child: Align(
+      alignment: Alignment.topRight,
+      child: Consumer2<ConfigViewModel, LocaleProvider>(
+        builder: (context, configVM, localeProvider, _) {
+          // Vérifier les langues disponibles depuis le backend
+          final supportedLangs = configVM.supportedLanguages;
+          final isEnglish = context.locale.languageCode == 'en';
+
+          // Si une seule langue → appliquer et cacher le bouton
+          if (configVM.forcedLanguage != null) {
+            final forced = Locale(configVM.forcedLanguage!);
+            if (context.locale.languageCode != forced.languageCode) {
+              EasyLocalization.of(context)!.setLocale(forced);
+              localeProvider.setLocale(forced);
+            }
+            return const SizedBox.shrink(); // rien à afficher
+          }
+
+          // Sinon → afficher le switcher
+          if (supportedLangs.length > 1) {
+            return GestureDetector(
+              onTap: () async {
+                final newLocale = isEnglish ? const Locale('ar') : const Locale('en');
+                await EasyLocalization.of(context)!.setLocale(newLocale);
+                localeProvider.setLocale(newLocale);
+              },
+              child: Text(
+                isEnglish ? "🇺🇸 English" : "🇪🇬 العربية",
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
-            ),
-            PopupMenuItem(
-              value: const Locale('ar'),
-              child: Row(
-                children: [
-                  const Text("🇪🇬 "), // flag emoji
-                  const SizedBox(width: 8),
-                  const Text("العربية"),
-                ],
-              ),
-            ),
-          ],
-          child: Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: const Color(0xFFEE6B33),
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.15),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: const Icon(
-              Icons.language, // globe icon
-              color: Colors.white,
-            ),
-          ),
-        );
-      },
+            );
+          }
+
+          return const SizedBox.shrink();
+        },
+      ),
     ),
   ),
 ),
 
-),
-          SafeArea(
-            child: Center(
-              child: SingleChildScrollView
-              (
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const SizedBox(height: 16),
-                    const Image(
-                      image: AssetImage('assets/logo_BlueTransparent.png'),
-                      height: 120,
-                    ),
-                    
-         // GLASS CARD
-                    _GlassCard(
-                      width: screen.width * .9,
-                      padding: const EdgeInsets.fromLTRB(22, 22, 22, 26),
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                _GlassTab(
-                                  label: 'login'.tr(),
-                                  isActive: true,
-                                  underlineColor: const Color(0xFFEE6B33),
-                                  // No need to set textAlign here, handled inside _GlassTab
-                                ),
-                                const SizedBox(width: 20),
-                                GestureDetector(
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                          builder: (_) => const SignUpScreen()),
+
+        SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const SizedBox(height: 16),
+                  Image.network(
+                    config?.ciLogo ?? 'assets/logo_BlueTransparent.png',
+                    height: 120,
+                  ),
+
+                  // GLASS CARD
+                  _GlassCard(
+                    width: screen.width * .9,
+                    padding: const EdgeInsets.fromLTRB(22, 22, 22, 26),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              _GlassTab(
+                                label: 'login'.tr(),
+                                isActive: true,
+                                underlineColor: primaryColor,
+                              ),
+                              const SizedBox(width: 20),
+                              GestureDetector(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) => const SignUpScreen()),
+                                  );
+                                },
+                                child: Builder(
+                                  builder: (context) {
+                                    final locale = context.locale.languageCode;
+                                    return Text(
+                                      'signup'.tr(),
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        color: Colors.black87,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      textAlign: locale == 'ar'
+                                          ? TextAlign.right
+                                          : TextAlign.left,
                                     );
                                   },
-                                  child: Builder(
-                                    builder: (context) {
-                                      final locale = context.locale.languageCode;
-                                      return Text(
-                                        'signup'.tr(),
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          color: Colors.black87,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                        textAlign: locale == 'ar' ? TextAlign.right : TextAlign.left,
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-
-                            const SizedBox(height: 22),
-                            _GlassTextField(
-                              controller: emailOrPhoneController,
-                              hint: 'emailOrPhone'.tr(),
-                              icon: Icons.alternate_email,
-                              validator: (v) {
-                                final value = (v ?? '').trim();
-                                if (value.isEmpty) return 'requiredField'.tr();
-                                final isEmail = _emailRx.hasMatch(value);
-                                final isEgPhone = _egPhoneRx.hasMatch(value);
-                                if (!isEmail && !isEgPhone) {
-                                  return 'invalidEmailOrPhone'.tr();
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            _GlassTextField(
-                              controller: passwordController,
-                              hint: 'password'.tr(),
-                              icon: Icons.lock,
-                              obscure: _obscurePassword,
-                              validator: (v) =>
-                                  v == null || v.trim().isEmpty ? 'requiredField'.tr() : null,
-                              trailing: IconButton(
-                                icon: Icon(
-                                  _obscurePassword
-                                      ? Icons.visibility
-                                      : Icons.visibility_off,
-                                  color: Colors.black87,
-                                ),
-                                onPressed: () => setState(
-                                    () => _obscurePassword = !_obscurePassword),
-                              ),
-                            ),
-
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: Text(
-                                'forgotPassword'.tr(),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.black87,
                                 ),
                               ),
-
+                            ],
+                          ),
+                          const SizedBox(height: 22),
+                          _GlassTextField(
+                            controller: emailOrPhoneController,
+                            hint: 'emailOrPhone'.tr(),
+                            icon: Icons.alternate_email,
+                            validator: (v) {
+                              final value = (v ?? '').trim();
+                              if (value.isEmpty) return 'requiredField'.tr();
+                              final isEmail = _emailRx.hasMatch(value);
+                              final isEgPhone = _egPhoneRx.hasMatch(value);
+                              if (!isEmail && !isEgPhone) {
+                                return 'invalidEmailOrPhone'.tr();
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          _GlassTextField(
+                            controller: passwordController,
+                            hint: 'password'.tr(),
+                            icon: Icons.lock,
+                            obscure: _obscurePassword,
+                            validator: (v) => v == null || v.trim().isEmpty
+                                ? 'requiredField'.tr()
+                                : null,
+                            trailing: IconButton(
+                              icon: Icon(
+                                _obscurePassword
+                                    ? Icons.visibility
+                                    : Icons.visibility_off,
+                                color: Colors.black87,
+                              ),
+                              onPressed: () => setState(
+                                  () => _obscurePassword = !_obscurePassword),
                             ),
-
-                            const SizedBox(height: 6),
-                            _GlassButton(
-                              label: 'login'.tr(),
-                              color: const Color(0xFFEE6B33),
-                              onPressed: () {
-                                if (_formKey.currentState!.validate()) {
-                                  final vm = Provider.of<AuthViewModel>(context, listen: false);
-                                  String id = emailOrPhoneController.text.trim();
-                                  if (_egLocalRx.hasMatch(id)) {
-                                    id = '+20${id.substring(1)}';
-                                  }
-                                  vm.login(
-                                    id,
-                                    passwordController.text,
-                                    context,
-                                  );
+                          ),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              'forgotPassword'.tr(),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          _GlassButton(
+                            label: 'login'.tr(),
+                            color: primaryColor,
+                            onPressed: () {
+                              if (_formKey.currentState!.validate()) {
+                                final vm = Provider.of<AuthViewModel>(context, listen: false);
+                                String id = emailOrPhoneController.text.trim();
+                                if (_egLocalRx.hasMatch(id)) {
+                                  id = '+20${id.substring(1)}';
                                 }
-                              },
-                            ),
-
-                            const SizedBox(height: 16),
-                            Row(
+                                vm.login(id, passwordController.text, context);
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              const Expanded(child: Divider(thickness: .8)),
+                              Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 10),
+                                child: Text(
+                                  'orSignInWith'.tr(),
+                                  style: const TextStyle(color: Colors.black54),
+                                ),
+                              ),
+                              const Expanded(child: Divider(thickness: .8)),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          Consumer<AuthViewModel>(
+                            builder: (_, vm, __) => Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Expanded(child: Divider(thickness: .8)),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                                  child: Text(
-                                    'orSignInWith'.tr(),
-                                    style: const TextStyle(color: Colors.black54),
-                                  ),
+                                _GlassCircleIcon(
+                                  icon: FontAwesomeIcons.google,
+                                  iconColor: const Color(0xFFDB4437),
+                                  onTap: () {
+                                    debugPrint('[UI] Google icon tapped');
+                                    Provider.of<AuthViewModel>(context, listen: false)
+                                        .signInWithGoogle(context);
+                                  },
                                 ),
-                                const Expanded(child: Divider(thickness: .8)),
+                                const SizedBox(width: 18),
+                                _GlassCircleIcon(
+                                  icon: FontAwesomeIcons.facebookF,
+                                  iconColor: const Color(0xFF3b5998),
+                                  onTap: () => vm.signInWithFacebook(context),
+                                ),
                               ],
                             ),
-                            const SizedBox(height: 14),
-
-                            // Social: cliquables
-                            Consumer<AuthViewModel>(
-                              builder: (_, vm, __) => Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  _GlassCircleIcon(
-  icon: FontAwesomeIcons.google,
-  iconColor: const Color(0xFFDB4437),
-  onTap: () {
-    debugPrint('[UI] Google icon tapped'); // ✅ trace UI
-    Provider.of<AuthViewModel>(context, listen: false).signInWithGoogle(context);
-  },
-),
-
-                                  const SizedBox(width: 18),
-                                  _GlassCircleIcon(
-                                    icon: FontAwesomeIcons.facebookF,
-                                    iconColor: const Color(0xFF3b5998),
-                                    onTap: () => vm.signInWithFacebook(context),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
-        ],
-      ),
-    );
-    
-    
-  }
+        ),
+      ],
+    ),
+  );
+}
+
 
   /* ---------------- Forgot password ---------------- */
 
