@@ -119,46 +119,67 @@ class Address {
   }
 
   /// Body pour POST /orders/addresses (CreateAddressDto) — ✅ strings côté API
-  Map<String, dynamic> toCreateJson() => _clean({
-        'title': title,
-        'address': address,
-        'streetNameOrNumber': streetNameOrNumber,
-        'buildingNameOrNumber': buildingNameOrNumber,
-        'floorNumber': floorNumber,
-        'apartment': apartment,
-        'nearestLandmark': nearestLandmark,
-        'lat': lat,
-        'lng': lng,
+    /// Body pour POST /orders/addresses (CreateAddressDto)
+  /// -> on N'ENVOIE PAS lat/lng.
+  Map<String, dynamic> toCreateJson() {
+    final m = <String, dynamic>{
+      'title': title,
+      'address': address,
+      'streetNameOrNumber': streetNameOrNumber,
+      'buildingNameOrNumber': buildingNameOrNumber,
+      'floorNumber': floorNumber,
+      'apartment': apartment,
+      'nearestLandmark': nearestLandmark,
 
-        // ✅ nouveau contrat back
-        'countryName': countryName,
-        'governorateName': governorateName,
-        'districtId': districtId,
+      // ✅ nouveau contrat back : strings
+      'countryName': countryName,
+      'governorateName': governorateName,
+      'districtId': districtId,
 
-        'isHome': isHome,
-        'isWork': isWork,
-      });
+      'isHome': isHome,
+      'isWork': isWork,
+    };
+
+    // (Optionnel) si tu veux NE les envoyer QUE s'ils sont *tous les deux* présents :
+    // if (lat != null && lng != null) {
+    //   m['lat'] = lat;
+    //   m['lng'] = lng;
+    // }
+
+    return _clean(m);
+  }
 
   /// Body pour PUT /orders/addresses/:id (UpdateAddressDto)
-  Map<String, dynamic> toUpdateJson() => _clean({
-        'title': title,
-        'address': address,
-        'streetNameOrNumber': streetNameOrNumber,
-        'buildingNameOrNumber': buildingNameOrNumber,
-        'floorNumber': floorNumber,
-        'apartment': apartment,
-        'nearestLandmark': nearestLandmark,
-        'lat': lat,
-        'lng': lng,
+  /// -> idem, pas de lat/lng par défaut.
+  Map<String, dynamic> toUpdateJson() {
+    final m = <String, dynamic>{
+      'title': title,
+      'address': address,
+      'streetNameOrNumber': streetNameOrNumber,
+      'buildingNameOrNumber': buildingNameOrNumber,
+      'floorNumber': floorNumber,
+      'apartment': apartment,
+      'nearestLandmark': nearestLandmark,
 
-        // ✅ idem create
-        'countryName': countryName,
-        'governorateName': governorateName,
-        'districtId': districtId,
+      'countryName': countryName,
+      'governorateName': governorateName,
+      'districtId': districtId,
 
-        'isHome': isHome,
-        'isWork': isWork,
-      });
+      'isHome': isHome,
+      'isWork': isWork,
+    };
+
+    // (Optionnel) n’envoie lat/lng que si les deux existent :
+    // if (lat != null && lng != null) {
+    //   m['lat'] = lat;
+    //   m['lng'] = lng;
+    // }
+
+    return _clean(m);
+  }
+
+  /// Body pour PUT /orders/addresses/:id (UpdateAddressDto)
+  
 
   Address copyWith({
     int? userLocationId,

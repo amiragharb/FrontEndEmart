@@ -1,48 +1,22 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Package visibility for Facebook apps -->
-    <queries>
-    <package android:name="com.facebook.katana"/>  <!-- Facebook -->
-    <package android:name="com.facebook.lite"/>
-    <package android:name="com.facebook.orca"/>    <!-- Messenger -->
-    <package android:name="com.facebook.mlite"/>
-</queries>
-
-    <!-- Needed for networking -->
+    <!-- Network -->
     <uses-permission android:name="android.permission.INTERNET"/>
 
     <application
         android:name="${applicationName}"
-        android:label="eMart"
+        android:label="@string/app_name"
         android:icon="@mipmap/ic_launcher"
         android:networkSecurityConfig="@xml/network_security_config"
-         android:enableOnBackInvokedCallback="true"
-           android:usesCleartextTraffic="true"
->
- 
-        <!-- Facebook SDK config -->
+        android:enableOnBackInvokedCallback="true"
+        android:usesCleartextTraffic="true">
+
+        <!-- Keep for Flutter -->
         <meta-data
-            android:name="com.facebook.sdk.ApplicationId"
-            android:value="@string/facebook_app_id" />
-        <meta-data
-            android:name="com.facebook.sdk.ClientToken"
-            android:value="@string/facebook_client_token" />
-<meta-data
-    android:name="com.google.android.gms.client_id"
-    android:value="TON_CLIENT_ID_WEB.apps.googleusercontent.com" />
+            android:name="flutterEmbedding"
+            android:value="2" />
 
-
-        <activity
-            android:name="com.facebook.FacebookActivity"
-            android:configChanges="keyboard|keyboardHidden|screenLayout|screenSize|orientation"
-            android:label="@string/app_name" />
-
-        <!-- IMPORTANT: replace {facebook_app_id} with the actual id -->
-        <provider
-            android:name="com.facebook.FacebookContentProvider"
-            android:authorities="com.facebook.app.FacebookContentProvider.1309880057153230"
-            android:exported="true" />
-
+        <!-- Your Flutter activity -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -57,26 +31,12 @@
                 android:name="io.flutter.embedding.android.NormalTheme"
                 android:resource="@style/NormalTheme" />
 
-            <!-- 1) Launcher entry: ONLY MAIN + LAUNCHER -->
+            <!-- Launcher -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-
-            <!-- 2) Facebook deep-link / Custom tab entry -->
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data
-                    android:scheme="fb1309880057153230"
-                    android:host="authorize" />
-            </intent-filter>
         </activity>
 
-        <!-- Keep for Flutter -->
-        <meta-data
-            android:name="flutterEmbedding"
-            android:value="2" />
     </application>
 </manifest>

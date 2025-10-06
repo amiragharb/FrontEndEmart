@@ -22,8 +22,6 @@ class _AddEditAddressScreenState extends State<AddEditAddressScreen> {
   late final TextEditingController _address;      // Address details
   late final TextEditingController _building;     // Building number
   late final TextEditingController _specialSigns; // Special signs
-  late final TextEditingController _lat;
-  late final TextEditingController _lng;
 
   bool get _isAr => context.locale.languageCode.toLowerCase().startsWith('ar');
 
@@ -31,7 +29,7 @@ class _AddEditAddressScreenState extends State<AddEditAddressScreen> {
   static const String _countryValueEN = 'Egypt';
   String get _countryLabelUI => _isAr ? 'مصر' : 'Egypt';
 
-  // State/Governorates (on stocke et on envoie l’EN en backend)
+  // State/Governorates (EN envoyée au backend)
   static const List<String> _statesEN = <String>[
     'Cairo','Giza','Alexandria','Dakahlia','Sharqia','Gharbia','Qalyubia','Monufia','Beheira',
     'Kafr El Sheikh','Damietta','Port Said','Ismailia','Suez','Matrouh','North Sinai','South Sinai',
@@ -44,8 +42,8 @@ class _AddEditAddressScreenState extends State<AddEditAddressScreen> {
   ];
 
   String? _stateEN;          // valeur envoyée (EN)
-  bool _isHome = false;      // tu peux garder si utile
-  bool _isWork = false;      // idem
+  bool _isHome = false;
+  bool _isWork = false;
   bool _saving = false;
 
   @override
@@ -57,8 +55,6 @@ class _AddEditAddressScreenState extends State<AddEditAddressScreen> {
     _address      = TextEditingController(text: a?.address ?? '');
     _building     = TextEditingController(text: a?.buildingNameOrNumber ?? '');
     _specialSigns = TextEditingController(text: a?.nearestLandmark ?? '');
-    _lat          = TextEditingController(text: a?.lat?.toString() ?? '');
-    _lng          = TextEditingController(text: a?.lng?.toString() ?? '');
 
     _isHome = a?.isHome ?? false;
     _isWork = a?.isWork ?? false;
@@ -79,8 +75,6 @@ class _AddEditAddressScreenState extends State<AddEditAddressScreen> {
     _address.dispose();
     _building.dispose();
     _specialSigns.dispose();
-    _lat.dispose();
-    _lng.dispose();
     super.dispose();
   }
 
@@ -162,28 +156,7 @@ class _AddEditAddressScreenState extends State<AddEditAddressScreen> {
                 // Special signs
                 _T(label: 'special_signs'.tr(), controller: _specialSigns, primary: primary),
 
-                // Location (lat/lng)
-                Row(
-                  children: [
-                    Expanded(
-                      child: _T(
-                        label: 'lat'.tr(),
-                        controller: _lat,
-                        primary: primary,
-                        keyboard: const TextInputType.numberWithOptions(decimal: true),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _T(
-                        label: 'lng'.tr(),
-                        controller: _lng,
-                        primary: primary,
-                        keyboard: const TextInputType.numberWithOptions(decimal: true),
-                      ),
-                    ),
-                  ],
-                ),
+                // ✅ SUPPRIMÉ : les deux champs lat/lng
 
                 const SizedBox(height: 8),
 
@@ -273,12 +246,6 @@ class _AddEditAddressScreenState extends State<AddEditAddressScreen> {
     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
   );
 
-  double? _parseDouble(String s) {
-    final v = s.trim();
-    if (v.isEmpty) return null;
-    return double.tryParse(v.replaceAll(',', '.'));
-  }
-
   Future<void> _save() async {
     FocusScope.of(context).unfocus();
 
@@ -302,16 +269,16 @@ class _AddEditAddressScreenState extends State<AddEditAddressScreen> {
       address: _address.text.trim(),
       buildingNameOrNumber: _building.text.trim().isEmpty ? null : _building.text.trim(),
       nearestLandmark: _specialSigns.text.trim().isEmpty ? null : _specialSigns.text.trim(),
-      lat: _parseDouble(_lat.text),
-      lng: _parseDouble(_lng.text),
 
-      // ✅ on envoie les STRINGS, pas les IDs
+      // ❌ lat/lng retirés du payload (laisser null côté modèle si optionnels)
+      // lat: null,
+      // lng: null,
+
       countryId: null,
       countryName: _countryValueEN,
       governorateId: null,
       governorateName: _stateEN,
 
-      // plus de district/city
       districtId: null,
       districtName: null,
 

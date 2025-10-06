@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:frontendemart/config/api.dart';
 import 'package:frontendemart/models/SellerItem_model.dart';
@@ -9,52 +8,51 @@ import 'package:frontendemart/models/video_model.dart';
 import 'package:http/http.dart' as http;
 import '../services/api_service.dart';
 
-class ItemsViewModel extends ChangeNotifier
- {
+class ItemsViewModel extends ChangeNotifier {
   final ApiService _apiService = ApiService();
-  
-  // Collections principales
+
+  // ===== Collections principales =====
   List<Datasheet> _datasheets = [];
+  List<SellerItem> _allItems = [];
   List<SellerItem> _items = [];
   List<Category> _categories = [];
   List<VideoModel> _videos = [];
-  
-  // Cache des ratings par produit pour éviter les rechargements inutiles
-  final Map<int, ProductRatingData> _ratingsCache = {};
-  
-  // Données du produit actuellement affiché
-  int _currentProductId = -1;
-  ProductRatingData? _currentRatingData;
-  
-  bool _loading = false;
-  bool loading = false;
+
+  // ===== Filtres / état UI =====
   String? _searchQuery;
   String _categoryFilter = "All";
   String _sortOption = "None";
-  List<Category> _topBrandsOrCategories = []; // <- Nouveau champ
+  double? _minPrice;
+  double? _maxPrice;
 
-  // --- Getters ---
+  // ===== Divers =====
+  final Map<int, ProductRatingData> _ratingsCache = {};
+  int _currentProductId = -1;
+  ProductRatingData? _currentRatingData;
+
+  bool _loading = false;
+  bool loading = false;
+
+  List<Category> _topBrandsOrCategories = [];
+
+  // ===== Getters =====
   List<SellerItem> get items => _items;
   List<Category> get categories => _categories;
   String get selectedCategory => _categoryFilter;
   String get sortOption => _sortOption;
   List<Datasheet> get datasheets => _datasheets;
   List<VideoModel> get videos => _videos;
-  
+  List<Category> get topBrandsOrCategories => _topBrandsOrCategories;
 
-  
-  List<Category> get topBrandsOrCategories => _topBrandsOrCategories; 
-  // Getters pour les ratings du produit actuel
-  double get averageRating => _currentRatingData?.averageRating ?? 0.0;
-  int get totalRatings => _currentRatingData?.totalRatings ?? 0;
-  int get recommendPercent => _currentRatingData?.recommendPercent ?? 0;
-  List<Map<String, dynamic>> get distribution => _currentRatingData?.distribution ?? [];
+  double? get minPrice => _minPrice;
+  double? get maxPrice => _maxPrice;
+  bool get isLoading => _loading;
 
-  // --- Best sellers ---
+  // ===== Best sellers =====
   List<SellerItem> get bestSellers =>
       _items.where((i) => i.priceWas != null && i.priceWas! > i.price).toList();
 
-  // --- Réinitialiser les données spécifiques au produit ---
+  // ===== Reset données produit =====
   void resetProductData() {
     _currentProductId = -1;
     _currentRatingData = null;
@@ -63,7 +61,7 @@ class ItemsViewModel extends ChangeNotifier
     notifyListeners();
   }
 
-  // --- Charger les catégories ---
+  // ===== Catégories =====
   Future<void> loadCategories() async {
     try {
       _categories = await _apiService.fetchCategories();
@@ -74,19 +72,27 @@ class ItemsViewModel extends ChangeNotifier
     }
   }
 
-  // --- Charger les items avec filtres ---
+  /* ===========================================================
+   *                     ITEMS & FILTRES
+   * =========================================================== */
+
+  /// Charge depuis l'API avec filtres serveur, puis applique les filtres locaux
   Future<void> loadItems({String? search, String? category, String? sort}) async {
     _loading = true;
     notifyListeners();
 
     try {
-      _items = await _apiService.fetchItems(
+      final fetched = await _apiService.fetchItems(
         search: search,
-        category: category,
-        sort: sort,
+        category: (category == null || category == "All") ? null : category,
+        sort: (sort == null || sort == "None") ? null : sort,
       );
+
+      _allItems = fetched;
+      _applyLocalFiltersAndSort();
     } catch (e) {
       debugPrint("Erreur loadItems: $e");
+      _allItems = [];
       _items = [];
     }
 
@@ -94,89 +100,213 @@ class ItemsViewModel extends ChangeNotifier
     notifyListeners();
   }
 
-  // --- Recherche ---
+  /// Recherche (server-side)
   void searchItems(String query) {
     _searchQuery = query;
-    loadItems(search: query, category: _categoryFilter, sort: _sortOption);
+    loadItems(
+      search: query,
+      category: _categoryFilter,
+      sort: _sortOption,
+    );
   }
 
-  // --- Filtrer par catégorie ---
+  /// Filtre catégorie (server-side)
   Future<void> filterByCategory(String? category) async {
-    if (category == null || category == "All") {
-      _categoryFilter = "All";
-      await loadItems(search: _searchQuery, category: null, sort: _sortOption);
-    } else {
-      _categoryFilter = category;
-      await loadItems(search: _searchQuery, category: _categoryFilter, sort: _sortOption);
-    }
+    _categoryFilter = (category == null || category == "All") ? "All" : category;
+    await loadItems(
+      search: _searchQuery,
+      category: _categoryFilter,
+      sort: _sortOption,
+    );
   }
 
+  /// Tri
   void sortItems(String? sortOption) {
-    if (sortOption == null || sortOption == "None") {
-      _sortOption = "None";
-      loadItems(search: _searchQuery, category: _categoryFilter == "All" ? null : _categoryFilter, sort: null);
-    } else {
-      _sortOption = sortOption;
-      loadItems(search: _searchQuery, category: _categoryFilter == "All" ? null : _categoryFilter, sort: _sortOption);
-    }
+    _sortOption = (sortOption == null || sortOption == "None") ? "None" : sortOption;
+    loadItems(
+      search: _searchQuery,
+      category: _categoryFilter,
+      sort: _sortOption,
+    );
   }
 
-  // --- Charger les ratings d'un produit spécifique ---
+  /// Définir plage de prix (local-only) - CORRIGÉ
+  void setPriceRange(double min, double max) {
+    _minPrice = min;
+    _maxPrice = max;
+    _applyLocalFiltersAndSort(); // Applique immédiatement sans recharger
+    notifyListeners();
+  }
+
+  /// Réinitialise tous les filtres - CORRIGÉ
+  Future<void> resetFilters() async {
+    _searchQuery = null;
+    _categoryFilter = 'All';
+    _sortOption = 'None';
+    _minPrice = null;
+    _maxPrice = null;
+    await loadItems();
+  }
+
+  /// Applique les filtres locaux (prix) + tri sur _allItems → _items
+  void _applyLocalFiltersAndSort() {
+    var list = List<SellerItem>.from(_allItems);
+
+    // Filtre prix min
+    if (_minPrice != null) {
+      list = list.where((it) => (it.price ?? 0) >= _minPrice!).toList();
+    }
+    
+    // Filtre prix max
+    if (_maxPrice != null) {
+      list = list.where((it) => (it.price ?? 0) <= _maxPrice!).toList();
+    }
+
+    // Tri local
+    switch (_sortOption) {
+      case "PriceAsc":
+        list.sort((a, b) => (a.price ?? 0).compareTo(b.price ?? 0));
+        break;
+      case "PriceDesc":
+        list.sort((a, b) => (b.price ?? 0).compareTo(a.price ?? 0));
+        break;
+      case "BestRated":
+        list.sort((a, b) => (b.avgRating ?? 0).compareTo(a.avgRating ?? 0));
+        break;
+      default:
+        break;
+    }
+
+    _items = list;
+  }
+
+  /* ===========================================================
+   *                        RATINGS
+   * =========================================================== */
+
+  double get averageRating => _currentRatingData?.averageRating ?? 0.0;
+  int get totalRatings => _currentRatingData?.totalRatings ?? 0;
+  int get recommendPercent => _currentRatingData?.recommendPercent ?? 0;
+  List<Map<String, dynamic>> get distribution => _currentRatingData?.distribution ?? [];
+
   Future<void> loadRatings(int sellerItemId) async {
-    // CORRECTION 1: Vérifier seulement le cache, pas _currentProductId
     if (_ratingsCache.containsKey(sellerItemId)) {
       _currentProductId = sellerItemId;
       _currentRatingData = _ratingsCache[sellerItemId];
-      debugPrint("Ratings chargés depuis le cache pour produit $sellerItemId");
       notifyListeners();
       return;
     }
 
     try {
       _currentProductId = sellerItemId;
-      final result = await _apiService.fetchRatings(sellerItemId);
+      final res = await _apiService.fetchRatings(sellerItemId);
 
-      final distribution = List<Map<String, dynamic>>.from(result["distribution"] ?? []);
-      final recommend = result["recommend"] ?? 0;
+      List<Map<String, dynamic>> distRaw = const [];
+      int recommend = 0;
 
-      int totalVotes = 0;
-      int sum = 0;
-      for (var d in distribution) {
-        final total = d["total"] as int? ?? 0;
-        final rate = d["Rate"] as int? ?? 0;
-        totalVotes += total;
-        sum += rate * total;
+      if (res is List && res.isNotEmpty) {
+        final block0 = res[0];
+        if (block0 is List) {
+          distRaw = block0
+              .map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e))
+              .toList();
+        }
+        if (res.length > 1 && res[1] is List && (res[1] as List).isNotEmpty) {
+          final m = Map<String, dynamic>.from((res[1] as List).first);
+          recommend = (m['RecommendThisProduct'] as num?)?.toInt() ?? 0;
+        }
+      } else if (res is Map) {
+        distRaw = List<Map<String, dynamic>>.from(res['distribution'] ?? const []);
+        recommend = (res['recommend'] as num?)?.toInt() ?? 0;
       }
 
-      final avgRating = totalVotes > 0 ? sum / totalVotes : 0.0;
-      
-      // Créer et sauvegarder les données de rating
-      final ratingData = ProductRatingData(
+      final Map<int, int> counts = {for (var s in [0,1,2,3,4,5]) s: 0};
+      for (final row in distRaw) {
+        final rateRaw = (row['Rate'] as num?)?.toDouble() ?? 0.0;
+        final total   = (row['total'] as num?)?.toInt() ?? 0;
+        final stars = rateRaw > 5 ? (rateRaw / 20.0).round() : rateRaw.round();
+        final s = stars.clamp(0, 5).toInt();
+        counts[s] = (counts[s] ?? 0) + total;
+      }
+
+      int totalVotes = counts.values.fold(0, (a, b) => a + b);
+      int sum = 0;
+      counts.forEach((stars, c) => sum += stars * c);
+      final avgRating = totalVotes > 0 ? (sum / totalVotes) : 0.0;
+
+      final distribution = [5, 4, 3, 2, 1]
+          .map<Map<String, dynamic>>((s) => <String, dynamic>{
+                'Rate': s,
+                'total': counts[s] ?? 0,
+              })
+          .toList();
+
+      final data = ProductRatingData(
         averageRating: avgRating,
         totalRatings: totalVotes,
         recommendPercent: recommend,
         distribution: distribution,
       );
 
-      _ratingsCache[sellerItemId] = ratingData;
-      _currentRatingData = ratingData;
-
-      debugPrint("Ratings chargés depuis l'API pour produit $sellerItemId: avg=$avgRating, total=$totalVotes");
+      _ratingsCache[sellerItemId] = data;
+      _currentRatingData = data;
       notifyListeners();
     } catch (e) {
-      debugPrint("Erreur loadRatings($sellerItemId): $e");
-      // En cas d'erreur, créer des données vides
       _currentRatingData = ProductRatingData(
         averageRating: 0.0,
         totalRatings: 0,
         recommendPercent: 0,
-        distribution: [],
+        distribution: const [],
       );
       notifyListeners();
     }
   }
 
-  // --- Ajouter un rating ---
+  void applyLocalRating({
+    required int sellerItemId,
+    required int rating,
+    required bool recommend,
+  }) {
+    final current = _ratingsCache[sellerItemId] ??
+        ProductRatingData(
+          averageRating: 0,
+          totalRatings: 0,
+          recommendPercent: 0,
+          distribution: List.generate(6, (i) => {'Rate': 5 - i, 'total': 0}),
+        );
+
+    final oldTotal = current.totalRatings;
+    final oldAvg   = current.averageRating;
+
+    final newTotal = oldTotal + 1;
+    final newAvg   = ((oldAvg * oldTotal) + rating) / newTotal;
+
+    final dist = List<Map<String, dynamic>>.from(current.distribution);
+    final idx  = dist.indexWhere((e) => e['Rate'] == rating);
+    if (idx >= 0) {
+      dist[idx]['total'] = (dist[idx]['total'] ?? 0) + 1;
+    } else {
+      dist.add({'Rate': rating, 'total': 1});
+    }
+
+    final oldRecommendCount = ((current.recommendPercent / 100) * oldTotal).round();
+    final newRecommendCount = oldRecommendCount + (recommend ? 1 : 0);
+    final newPercent = newTotal == 0 ? 0 : ((newRecommendCount * 100) / newTotal).round();
+
+    final updated = ProductRatingData(
+      averageRating: newAvg,
+      totalRatings: newTotal,
+      recommendPercent: newPercent,
+      distribution: dist,
+    );
+
+    _ratingsCache[sellerItemId] = updated;
+    if (_currentProductId == sellerItemId) {
+      _currentRatingData = updated;
+    }
+    notifyListeners();
+  }
+
   Future<bool> addRating(
     int sellerItemId,
     int userId,
@@ -184,6 +314,12 @@ class ItemsViewModel extends ChangeNotifier
     String? comment,
     bool recommend = false,
   }) async {
+    applyLocalRating(
+      sellerItemId: sellerItemId,
+      rating: rating,
+      recommend: recommend,
+    );
+
     final success = await _apiService.rateProduct(
       sellerItemId,
       userId,
@@ -193,16 +329,18 @@ class ItemsViewModel extends ChangeNotifier
     );
 
     if (success) {
-      // Supprimer du cache pour forcer un rechargement avec les nouvelles données
       _ratingsCache.remove(sellerItemId);
       await loadRatings(sellerItemId);
-      debugPrint("Rating ajouté avec succès pour produit $sellerItemId");
+    } else {
+      await loadRatings(sellerItemId);
     }
-
     return success;
   }
 
-  // --- Charger les datasheets pour un médicament ---
+  /* ===========================================================
+   *                    DATASHEETS / VIDÉOS
+   * =========================================================== */
+
   Future<void> loadDatasheets(int medicineId) async {
     try {
       loading = true;
@@ -230,17 +368,14 @@ class ItemsViewModel extends ChangeNotifier
     }
   }
 
-  // --- Charger les vidéos pour un médicament ---
   Future<void> loadVideos(int medicineId) async {
     debugPrint("Chargement des vidéos pour médicament $medicineId");
-
     try {
       loading = true;
       notifyListeners();
 
       _videos = await _apiService.fetchVideos(medicineId);
       debugPrint("Vidéos chargées: ${_videos.length} éléments");
-      
       for (var v in _videos) {
         debugPrint("Vidéo: id=${v.id}, nom=${v.fileName}, url=${v.fileUrl}");
       }
@@ -254,21 +389,21 @@ class ItemsViewModel extends ChangeNotifier
     }
   }
 
-  // --- Obtenir les ratings d'un produit spécifique depuis le cache ---
   ProductRatingData? getRatingsForProduct(int sellerItemId) {
     return _ratingsCache[sellerItemId];
   }
 
-  // --- Vérifier si les ratings d'un produit sont chargés ---
   bool hasRatingsForProduct(int sellerItemId) {
     return _ratingsCache.containsKey(sellerItemId);
   }
 
-  // CORRECTION 3: Nouvelle méthode pour vérifier si on affiche le bon produit
   bool isCurrentProduct(int sellerItemId) {
     return _currentProductId == sellerItemId;
   }
-  // --- Charger les top brands ou catégories ---
+
+  /* ===========================================================
+   *                 Top brands / catégories
+   * =========================================================== */
   Future<void> loadTopBrandsOrCategories({int limit = 6}) async {
     try {
       final url = Uri.parse('${ApiConfig.baseUrl}/top-brands?limit=$limit');
@@ -291,7 +426,8 @@ class ItemsViewModel extends ChangeNotifier
     }
   }
 }
-// --- Classe pour encapsuler les données de rating d'un produit ---
+
+/* ===== Modèle des ratings ===== */
 class ProductRatingData {
   final double averageRating;
   final int totalRatings;
@@ -306,9 +442,6 @@ class ProductRatingData {
   });
 
   @override
-  String toString() {
-    return 'ProductRatingData(avg: $averageRating, total: $totalRatings, recommend: $recommendPercent%)';
-  }
-  
-  
+  String toString() =>
+      'ProductRatingData(avg: $averageRating, total: $totalRatings, recommend: $recommendPercent%)';
 }

@@ -94,24 +94,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
-                        _SectionCard(
-                          titleKey: 'services',
-                          primaryColor: primaryColor,
-                          children: [
-                            _Cell(icon: Icons.account_balance_wallet_outlined, textKey: 'banks_and_cards'),
-                            _Cell(icon: Icons.message_outlined, textKey: 'message_center'),
-                            _Cell(icon: Icons.settings_outlined, textKey: 'settings'),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        _SectionCard(
-                          titleKey: 'alerts',
-                          primaryColor: primaryColor,
-                          children: [
-                            _Cell(icon: Icons.notifications_none_outlined, textKey: 'notifications', badge: '2'),
-                          ],
-                        ),
+                        
                         const SizedBox(height: 20),
                         _LogoutButton(onTap: () => context.read<AuthViewModel>().logout(context), primaryColor: primaryColor),
                       ],

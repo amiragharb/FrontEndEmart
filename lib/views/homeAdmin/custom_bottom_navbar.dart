@@ -17,151 +17,115 @@ class CustomBottomNavBar extends StatefulWidget {
 }
 
 class _CustomBottomNavBarState extends State<CustomBottomNavBar> {
-
-  void _navigate(BuildContext context, int index) {
-    final safeIndex = index.clamp(0, 4);
-    index = safeIndex;
-    Widget dest;
-    switch (index) {
-      case 0:
-        dest = const HomeScreen();
-        break;
-      case 1:
-      dest = const Center(child: Text('OffersScreen')); // TODO: remplacer par ta vraie vue
-        break;
-      case 2:
-       dest = const OrderSummaryScreen();
-// TODO: remplacer par ta vraie vue
-        break;
-      case 3:
-             dest = const ShowWishlistScreen();
-
-        break;
-      case 4:
-        dest = const ProfileScreen();
-        break;
-      default:
-        dest = const HomeScreen();
-    }
+  void _navigate(BuildContext context, int index, List<Widget> destinations) {
+    final safeIndex = index.clamp(0, destinations.length - 1);
+    final dest = destinations[safeIndex];
     final current = ModalRoute.of(context)?.settings.name;
     final target = dest.runtimeType.toString();
+
     if (current != target) {
       Feedback.forTap(context);
       Navigator.pushReplacement(
         context,
         PageRouteBuilder(
           settings: RouteSettings(name: target),
-          transitionDuration: const Duration(milliseconds: 220),
+          transitionDuration: const Duration(milliseconds: 300),
           pageBuilder: (_, __, ___) => dest,
-          transitionsBuilder: (_, a, __, child) =>
-              FadeTransition(opacity: CurvedAnimation(parent: a, curve: Curves.easeOutCubic), child: child),
+          transitionsBuilder: (_, a, __, child) {
+            return FadeTransition(
+              opacity: CurvedAnimation(parent: a, curve: Curves.easeInOut),
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, 0.1),
+                  end: Offset.zero,
+                ).animate(CurvedAnimation(parent: a, curve: Curves.easeOutCubic)),
+                child: child,
+              ),
+            );
+          },
         ),
       );
     }
+  }
+
+  Color _parseHexColor(String? hex, {Color fallback = const Color(0xFFEE6B33)}) {
+    if (hex == null) return fallback;
+    var s = hex.trim().replaceAll('#', '');
+    if (s.toLowerCase().startsWith('0x')) s = s.substring(2);
+    if (s.length == 6) s = 'FF$s';
+    final v = int.tryParse(s, radix: 16);
+    return v != null ? Color(v) : fallback;
   }
 
   @override
   Widget build(BuildContext context) {
     final configVM = Provider.of<ConfigViewModel>(context);
     final config = configVM.config;
+    final primaryColor = _parseHexColor(config?.ciPrimaryColor);
 
-    // Couleur primaire dynamique avec fallback
-    final primaryColor = (config?.ciPrimaryColor != null && config!.ciPrimaryColor!.isNotEmpty)
-        ? Color(int.parse('FF${config.ciPrimaryColor}', radix: 16))
-        : const Color(0xFFEE6B33);
+    final items = <_NavItem>[
+      _NavItem(Icons.home_rounded, Icons.home_outlined, 'home'.tr()),
+      _NavItem(Icons.receipt_long_rounded, Icons.receipt_long_outlined, 'orders'.tr()),
+      _NavItem(Icons.favorite_rounded, Icons.favorite_border, 'wishlist'.tr()),
+      _NavItem(Icons.person_rounded, Icons.person_outline, 'account'.tr()),
+    ];
 
-    final _ = EasyLocalization.of(context)!.locale;
-    final items = [
-  _NavItem(Icons.home_outlined, 'home'.tr()),              // 0 - Home
-  _NavItem(Icons.local_offer_outlined, 'offers'.tr()),     // 1 - Offers
-  _NavItem(Icons.receipt_long_outlined, 'orders'.tr()),    // 2 - Orders
-  _NavItem(Icons.favorite_border, 'wishlist'.tr()),        // 3 - Wishlist
-  _NavItem(Icons.person_outline, 'account'.tr()),          // 4 - Account
-];
+    final destinations = <Widget>[
+      const HomeScreen(),
+      const OrderSummaryScreen(),
+      const ShowWishlistScreen(),
+      const ProfileScreen(),
+    ];
 
     final idx = widget.currentIndex.clamp(0, items.length - 1);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-          child: Container(
-            height: 72,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(.18),
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: Colors.white.withOpacity(.40), width: 1),
-              boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(.08), blurRadius: 18, offset: const Offset(0, 10)),
-              ],
-            ),
-            child: _SlidingCapsule(
-              index: idx,
-              itemCount: items.length,
-              child: Row(
-                children: List.generate(items.length, (i) {
-                  final selected = i == idx;
-                  return Expanded(
-                    child: _BarItem(
-                      item: items[i],
-                      selected: selected,
-                      primaryColor: primaryColor, // <- couleur dynamique ici
-                      onTap: () => _navigate(context, i),
-                    ),
-                  );
-                }),
-              ),
-            ),
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+      height: 70,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(25),
+        boxShadow: [
+          BoxShadow(
+            color: primaryColor.withOpacity(0.15),
+            blurRadius: 30,
+            offset: const Offset(0, 10),
+            spreadRadius: 0,
           ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(25),
+        child: Row(
+          children: List.generate(items.length, (i) {
+            final selected = i == idx;
+            return Expanded(
+              child: _ModernBarItem(
+                item: items[i],
+                selected: selected,
+                primaryColor: primaryColor,
+                onTap: () => _navigate(context, i, destinations),
+              ),
+            );
+          }),
         ),
       ),
     );
   }
 }
 
-class _SlidingCapsule extends StatelessWidget {
-  final int index;
-  final int itemCount;
-  final Widget child;
-  const _SlidingCapsule({required this.index, required this.itemCount, required this.child});
-  double get _alignmentX => itemCount <= 1 ? 0 : (index / (itemCount - 1)) * 2 - 1;
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        AnimatedAlign(
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
-          alignment: Alignment(_alignmentX, 0),
-          child: FractionallySizedBox(
-            widthFactor: 1 / itemCount,
-            heightFactor: 1,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(.28),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: Colors.white.withOpacity(.45), width: 1),
-                ),
-              ),
-            ),
-          ),
-        ),
-        child,
-      ],
-    );
-  }
-}
-
-class _BarItem extends StatelessWidget {
+class _ModernBarItem extends StatefulWidget {
   final _NavItem item;
   final bool selected;
   final VoidCallback onTap;
-  final Color primaryColor; // <- nouvelle propriété
+  final Color primaryColor;
 
-  const _BarItem({
+  const _ModernBarItem({
     required this.item,
     required this.selected,
     required this.primaryColor,
@@ -169,75 +133,128 @@ class _BarItem extends StatelessWidget {
   });
 
   @override
+  State<_ModernBarItem> createState() => _ModernBarItemState();
+}
+
+class _ModernBarItemState extends State<_ModernBarItem> 
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 400),
+      vsync: this,
+    );
+    
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
+    );
+    
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
+
+    if (widget.selected) {
+      _controller.forward();
+    }
+  }
+
+  @override
+  void didUpdateWidget(_ModernBarItem oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.selected != oldWidget.selected) {
+      if (widget.selected) {
+        _controller.forward();
+      } else {
+        _controller.reverse();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final inactive = Colors.black.withOpacity(.45);
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      splashColor: primaryColor.withOpacity(.12),
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 180),
-        switchInCurve: Curves.easeOutCubic,
-        switchOutCurve: Curves.easeOutCubic,
-        child: selected
-            ? Row(
-                key: const ValueKey('selected'),
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  AnimatedScale(
-                    duration: const Duration(milliseconds: 180),
-                    scale: 1.1,
-                    child: Icon(item.icon, color: primaryColor, size: 24),
-                  ),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: AnimatedDefaultTextStyle(
-                      duration: const Duration(milliseconds: 180),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: widget.onTap,
+        borderRadius: BorderRadius.circular(25),
+        splashColor: widget.primaryColor.withOpacity(0.1),
+        highlightColor: widget.primaryColor.withOpacity(0.05),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedBuilder(
+                animation: _controller,
+                builder: (context, child) {
+                  return Transform.scale(
+                    scale: widget.selected ? _scaleAnimation.value : 1.0,
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: widget.selected
+                            ? widget.primaryColor.withOpacity(0.15)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        widget.selected ? widget.item.iconFilled : widget.item.iconOutlined,
+                        color: widget.selected
+                            ? widget.primaryColor
+                            : Colors.grey.shade600,
+                        size: 24,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 2),
+              Flexible(
+                child: AnimatedBuilder(
+                  animation: _fadeAnimation,
+                  builder: (context, child) {
+                    return AnimatedDefaultTextStyle(
+                      duration: const Duration(milliseconds: 200),
                       style: TextStyle(
-                        color: primaryColor,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                        letterSpacing: .2,
+                        color: widget.selected
+                            ? widget.primaryColor
+                            : Colors.grey.shade600,
+                        fontWeight: widget.selected ? FontWeight.w600 : FontWeight.w500,
+                        fontSize: widget.selected ? 11 : 10,
                       ),
                       child: Text(
-                        item.label,
+                        widget.item.label,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.center,
                       ),
-                    ),
-                  ),
-                ],
-              )
-            : Column(
-                key: const ValueKey('unselected'),
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(item.icon, color: inactive, size: 22),
-                  const SizedBox(height: 4),
-                  Flexible(
-                    child: Text(
-                      item.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: inactive,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 11.5,
-                        letterSpacing: .1,
-                      ),
-                    ),
-                  ),
-                ],
+                    );
+                  },
+                ),
               ),
+            ],
+          ),
+        ),
       ),
     );
   }
 }
 
 class _NavItem {
-  final IconData icon;
+  final IconData iconFilled;
+  final IconData iconOutlined;
   final String label;
-  const _NavItem(this.icon, this.label);
+  const _NavItem(this.iconFilled, this.iconOutlined, this.label);
 }

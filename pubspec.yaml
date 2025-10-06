@@ -34,10 +34,12 @@ dependencies:
   easy_localization: ^3.0.8
   geolocator: ^10.1.0
   geocoding: ^2.1.0 
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.13.1
 
 flutter:
   uses-material-design: true
@@ -47,11 +49,13 @@ flutter:
     - assets/translations/en.json
     - assets/translations/ar.json
 
-  generate: true   # ✅ bien aligné
-
   fonts:
     - family: Roboto
       fonts:
         - asset: assets/fonts/Roboto-Regular.ttf
         - asset: assets/fonts/Roboto-Bold.ttf
           weight: 700
+
+flutter_launcher_icons:
+  android: true
+  image_path_android: assets/brand/icon.png

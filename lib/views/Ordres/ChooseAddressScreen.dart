@@ -96,41 +96,43 @@ class _ChooseAddressScreenState extends State<ChooseAddressScreen> {
             style: TextStyle(color: primary, fontWeight: FontWeight.w700)),
       ),
       body: vm.loading
-          ? const Center(child: CircularProgressIndicator())
-          : vm.error != null
-              ? _ErrorState(primary: primary, message: vm.error!, onRetry: _refresh)
-              : ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                  children: [
-                    _HeaderCapsule(
-                      primaryColor: primary,
-                      title: 'choose_address'.tr(),
-                      subtitle: isAr
-                          ? 'اختر عنوان التوصيل أو أضف عنوانًا جديدًا'
-                          : 'Pick a delivery address or add a new one',
-                    ),
-                    const SizedBox(height: 16),
-                    _SectionCard(
-                      primaryColor: primary,
-                      title: 'your_addresses'.tr(),
-                      child: list.isEmpty
-                          ? _EmptyInsideCard(primary: primary)
-                          : RefreshIndicator(
-                              color: primary,
-                              onRefresh: _refresh,
-                              child: ListView.separated(
-                                physics: const AlwaysScrollableScrollPhysics(),
-                                padding: EdgeInsets.zero,
-                                shrinkWrap: true,
-                                itemCount: list.length,
-                                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                                itemBuilder: (_, i) =>
-                                    _AddressCard(address: list[i], primary: primary),
-                              ),
-                            ),
-                    ),
-                  ],
+    ? const Center(child: CircularProgressIndicator())
+    : vm.error != null
+        ? _ErrorState(primary: primary, message: vm.error!, onRetry: _refresh)
+        : RefreshIndicator(
+            color: primary,
+            onRefresh: _refresh,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(), // permet le pull-to-refresh même si peu de contenu
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              children: [
+                _HeaderCapsule(
+                  primaryColor: primary,
+                  title: 'choose_address'.tr(),
+                  subtitle: isAr
+                      ? 'اختر عنوان التوصيل أو أضف عنوانًا جديدًا'
+                      : 'Pick a delivery address or add a new one',
                 ),
+                const SizedBox(height: 16),
+                _SectionCard(
+                  primaryColor: primary,
+                  title: 'your_addresses'.tr(),
+                  child: list.isEmpty
+                      ? _EmptyInsideCard(primary: primary)
+                      : ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(), // 🔒 pas de scroll interne
+                          padding: EdgeInsets.zero,
+                          itemCount: list.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 12),
+                          itemBuilder: (_, i) =>
+                              _AddressCard(address: list[i], primary: primary),
+                        ),
+                ),
+              ],
+            ),
+          ),
+
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
           final created = await Navigator.pushNamed(context, AppRoutes.addAddress);

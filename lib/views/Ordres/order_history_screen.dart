@@ -4,7 +4,6 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:frontendemart/views/homeAdmin/custom_bottom_navbar.dart';
 import 'package:http/http.dart' as http;
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -59,143 +58,100 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
 
   /// Essaie plusieurs endpoints et normalise la réponse
   Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  setState(() { _loading = true; _error = null; });
 
-    try {
-      final headers = await _headers();
-      final uid = await _userId();
+  try {
+    final headers = await _headers();
+    final uid = await _userId();
 
-      http.Response? res;
-      Uri? used;
+    http.Response? res;
+    Uri? used;
 
-      // 1) /orders?userId=
+    // ✅ 1) /orders/mine en premier (si token ok, pas besoin de userId)
+    used = Uri.parse('http://10.0.2.2:3001/orders/mine');
+    var rMine = await http.get(used, headers: headers);
+    if (rMine.statusCode >= 200 && rMine.statusCode < 300) {
+      res = rMine;
+    } else {
+      // 2) /orders?userId= (fallback)
       if (uid != null) {
         used = Uri.parse('http://10.0.2.2:3001/orders?userId=$uid');
-        res = await http.get(used, headers: headers);
-        if (res.statusCode == 404 || res.statusCode == 400) res = null;
+        var rQ = await http.get(used, headers: headers);
+        if (rQ.statusCode >= 200 && rQ.statusCode < 300) {
+          res = rQ;
+        } else if (rQ.statusCode != 404 && rQ.statusCode != 400) {
+          // garde la dernière erreur utile
+          res = rQ;
+        }
       }
 
-      // 2) /orders/user/:id
+      // 3) /orders/user/:id (deuxième fallback)
       if (res == null && uid != null) {
         used = Uri.parse('http://10.0.2.2:3001/orders/user/$uid');
-        final r2 = await http.get(used, headers: headers);
-        if (r2.statusCode >= 200 && r2.statusCode < 300) res = r2;
+        var rUser = await http.get(used, headers: headers);
+        if (rUser.statusCode >= 200 && rUser.statusCode < 300) {
+          res = rUser;
+        } else if (rUser.statusCode != 404 && rUser.statusCode != 400) {
+          res = rUser;
+        }
       }
-
-      // 3) /orders/mine
-      if (res == null) {
-        used = Uri.parse('http://10.0.2.2:3001/orders/mine');
-        final r3 = await http.get(used, headers: headers);
-        if (r3.statusCode >= 200 && r3.statusCode < 300) res = r3;
-      }
-
-      if (res == null) {
-        _error = 'No working endpoint for orders list';
-      } else if (res.statusCode >= 200 && res.statusCode < 300) {
-        // ---- Décode et normalise (tolérant à plein de formes) ----
-        final body = res.body;
-        // aide debug (voir le format réel côté console)
-        // ignore: avoid_print
-        print('[OrderHistory] GET ${used} → ${res.statusCode} body=${body.substring(0, body.length.clamp(0, 800))}');
-
-        dynamic decoded;
-        try {
-          decoded = jsonDecode(body);
-        } catch (_) {
-          // Si le backend renvoie du texte "No orders" → liste vide
-          _orders = [];
-          if (mounted) setState(() => _loading = false);
-          return;
-        }
-
-        List<Map<String, dynamic>> norm = [];
-
-        List<Map<String, dynamic>> _castList(dynamic x) {
-          return (x as List)
-              .whereType<Map>()
-              .map((e) => Map<String, dynamic>.from(e))
-              .toList();
-        }
-
-        Map<String, dynamic> _castMap(dynamic x) => Map<String, dynamic>.from(x);
-
-        // Cas 1: réponse déjà une liste
-        if (decoded is List) {
-          norm = _castList(decoded);
-        }
-        // Cas 2: objet avec une clé liste
-        else if (decoded is Map) {
-          final m = _castMap(decoded);
-
-          // Essaye plein de clés courantes
-          final keys = [
-            'orders',
-            'data',
-            'items',
-            'rows',
-            'recordset',
-            'results',
-            'value'
-          ];
-
-          bool picked = false;
-          for (final k in keys) {
-            final v = m[k];
-            if (v is List) {
-              norm = _castList(v);
-              picked = true;
-              break;
-            }
-          }
-
-          // Cas 2-bis: certains back renvoient {success:true, order:{...}}
-          if (!picked && m['order'] is Map) {
-            norm = [_castMap(m['order'])];
-            picked = true;
-          }
-
-          // Cas 2-ter: {success:true, list:[{orderId:..}]} avec un autre nom
-          if (!picked) {
-            for (final entry in m.entries) {
-              final v = entry.value;
-              if (v is List &&
-                  v.isNotEmpty &&
-                  v.first is Map &&
-                  (v.first as Map).containsKey('orderId')) {
-                norm = _castList(v);
-                picked = true;
-                break;
-              }
-            }
-          }
-
-          // Cas 2-quater: un seul objet qui ressemble à un header de commande
-          if (!picked &&
-              (m.containsKey('orderId') || m.containsKey('OrderID'))) {
-            norm = [m];
-            picked = true;
-          }
-
-          if (!picked) {
-            throw Exception('Unexpected response shape for list');
-          }
-        } else {
-          throw Exception('Unexpected response shape for list');
-        }
-
-        _orders = norm;
-      } else {
-        _error = 'HTTP ${res.statusCode}: ${res.body}';
-      }
-    } catch (e) {
-      _error = e.toString();
-    } finally {
-      if (mounted) setState(() => _loading = false);
     }
+
+    if (res == null) {
+      _error = 'No working endpoint for orders list';
+    } else if (res.statusCode >= 200 && res.statusCode < 300) {
+      final body = res.body;
+      print('[OrderHistory] GET $used → ${res.statusCode} body=${body.substring(0, body.length.clamp(0, 800))}');
+
+      dynamic decoded;
+      try { decoded = jsonDecode(body); } catch (_) {
+        _orders = [];
+        if (mounted) setState(() => _loading = false);
+        return;
+      }
+
+      List<Map<String, dynamic>> norm = [];
+      List<Map<String, dynamic>> _castList(dynamic x) => (x as List).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+      Map<String, dynamic> _castMap(dynamic x) => Map<String, dynamic>.from(x);
+
+      if (decoded is List) {
+        norm = _castList(decoded);
+      } else if (decoded is Map) {
+        final m = _castMap(decoded);
+        final keys = ['orders','data','items','rows','recordset','results','value'];
+        bool picked = false;
+        for (final k in keys) {
+          final v = m[k];
+          if (v is List) { norm = _castList(v); picked = true; break; }
+        }
+        if (!picked && m['order'] is Map) { norm = [_castMap(m['order'])]; picked = true; }
+        if (!picked) {
+          for (final entry in m.entries) {
+            final v = entry.value;
+            if (v is List && v.isNotEmpty && v.first is Map && (v.first as Map).containsKey('orderId')) {
+              norm = _castList(v); picked = true; break;
+            }
+          }
+        }
+        if (!picked && (m.containsKey('orderId') || m.containsKey('OrderID'))) {
+          norm = [m]; picked = true;
+        }
+        if (!picked) throw Exception('Unexpected response shape for list');
+      } else {
+        throw Exception('Unexpected response shape for list');
+      }
+
+      _orders = norm;
+    } else {
+      // Montre l’erreur HTTP utile (401, 403, etc.)
+      _error = 'HTTP ${res.statusCode}: ${res.body}';
+    }
+  } catch (e) {
+    _error = e.toString();
+  } finally {
+    if (mounted) setState(() => _loading = false);
   }
+}
 
   @override
   Widget build(BuildContext context) {

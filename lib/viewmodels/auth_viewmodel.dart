@@ -84,26 +84,26 @@ class AuthViewModel extends ChangeNotifier {
   }
 
   // ---------------------- PROFILE ----------------------
-  Future<void> loadUserProfile() async {
+ // ---------------------- PROFILE ----------------------
+Future<void> loadUserProfile() async {
   final profile = await _authService.getProfile();
 
   if (profile == null) {
-    // Session expirée ou non autorisée
     final ctx = navigatorKey.currentContext;
     if (ctx != null) {
       showDialog(
         context: ctx,
         barrierDismissible: false,
         builder: (dialogCtx) => AlertDialog(
-          title: Text('session_expired'.tr()), // traduction
-          content: Text('session_expired_message'.tr()), // traduction
+          title: Text('session_expired'.tr()),
+          content: Text('session_expired_message'.tr()),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.of(dialogCtx).pop();
                 logout(ctx);
               },
-              child: Text('relogin'.tr()), // traduction
+              child: Text('relogin'.tr()),
             ),
           ],
         ),
@@ -113,8 +113,20 @@ class AuthViewModel extends ChangeNotifier {
   }
 
   _userData = profile;
+
+  // ✅ NOUVEAU: stocke l'user_id pour l'historique commandes
+  final prefs = await SharedPreferences.getInstance();
+  final uid = profile['userId'] ?? profile['id'] ?? profile['UserID'];
+  if (uid != null) {
+    final uidInt = int.tryParse(uid.toString());
+    if (uidInt != null) {
+      await prefs.setInt('user_id', uidInt);
+    }
+  }
+
   notifyListeners();
 }
+
 
   Future<void> updateUserProfile(Map<String, dynamic> newData, BuildContext context) async {
     isLoading = true;

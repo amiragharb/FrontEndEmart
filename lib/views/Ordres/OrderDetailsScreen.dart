@@ -27,6 +27,58 @@ double _toDouble(dynamic v) =>
 
 int? _toInt(dynamic v) => v is int ? v : int.tryParse('${v ?? ''}');
 
+IconData _faToIconData(String? fa) {
+  final s = (fa ?? '').trim().toLowerCase(); // ex: "fa fa-plane"
+  final last = s.split(RegExp(r'\s+')).where((e) => e.startsWith('fa-')).map((e) => e.replaceFirst('fa-', '')).lastOrNull;
+  final k = last ?? s.replaceAll('fa', '').replaceAll('-', '').trim();
+
+  switch (k) {
+    case 'check':
+    case 'checkcircle':
+      return Icons.check_circle;
+    case 'times':
+    case 'close':
+    case 'ban':
+      return Icons.cancel;
+    case 'plane':
+      return Icons.flight;
+    case 'truck':
+    case 'shippingfast':
+    case 'motorcycle':
+      return Icons.local_shipping;
+    case 'hourglass':
+    case 'clock':
+      return Icons.schedule;
+    case 'box':
+    case 'archive':
+      return Icons.inventory_2;
+    case 'shoppingcart':
+    case 'cartplus':
+      return Icons.add_shopping_cart;
+    case 'clipboard':
+    case 'file':
+      return Icons.description;
+    case 'home':
+      return Icons.home_outlined;
+    case 'store':
+      return Icons.storefront;
+    default:
+      return Icons.info_outline;
+  }
+}
+
+extension _IterableLastOrNull<T> on Iterable<T> {
+  T? get lastOrNull {
+    final it = iterator;
+    if (!it.moveNext()) return null;
+    T value = it.current;
+    while (it.moveNext()) {
+      value = it.current;
+    }
+    return value;
+  }
+}
+
 /* ---------------- Screen ---------------- */
 
 class OrderDetailsScreen extends StatefulWidget {
@@ -38,7 +90,8 @@ class OrderDetailsScreen extends StatefulWidget {
 }
 
 class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
-  Map<String, dynamic>? _root;
+  Map<String, dynamic>? _root;            // /orders/:id
+  Map<String, dynamic>? _status;          // /orders/:id/status
   bool _loading = true;
   String? _error;
 
@@ -58,22 +111,38 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
 
-      final uri = Uri.parse('http://10.0.2.2:3001/orders/${widget.orderId}');
       final headers = <String, String>{
         'Content-Type': 'application/json',
         if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
       };
 
-      final res = await http.get(uri, headers: headers);
-      if (res.statusCode >= 200 && res.statusCode < 300) {
-        final decoded = jsonDecode(res.body);
-        if (decoded is Map<String, dynamic>) {
-          _root = decoded;
-        } else {
-          _error = 'Unexpected response shape';
-        }
+      // NB: 10.0.2.2 = localhost (Android emulator)
+      final uriOrder  = Uri.parse('http://10.0.2.2:3001/orders/${widget.orderId}');
+      final uriStatus = Uri.parse('http://10.0.2.2:3001/orders/${widget.orderId}/status');
+
+      final responses = await Future.wait<http.Response>([
+        http.get(uriOrder,  headers: headers),
+        http.get(uriStatus, headers: headers), // route non protégée, header ok quand même
+      ]);
+
+      final resOrder  = responses[0];
+      final resStatus = responses[1];
+
+      if (resOrder.statusCode < 200 || resOrder.statusCode >= 300) {
+        throw Exception('Order HTTP ${resOrder.statusCode}: ${resOrder.body}');
+      }
+      final decoded = jsonDecode(resOrder.body);
+      if (decoded is! Map<String, dynamic>) {
+        throw Exception('Unexpected order response shape');
+      }
+      _root = decoded;
+
+      if (resStatus.statusCode >= 200 && resStatus.statusCode < 300) {
+        final s = jsonDecode(resStatus.body);
+        if (s is Map<String, dynamic>) _status = s;
       } else {
-        _error = 'HTTP ${res.statusCode}: ${res.body}';
+        // Pas bloquant — on affiche juste sans statut
+        _status = null;
       }
     } catch (e) {
       _error = e.toString();
@@ -94,13 +163,13 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         body: const Center(child: CircularProgressIndicator()),
       );
     }
-    if (_error != null) {
+    if (_error != null || _root == null) {
       return Scaffold(
         appBar: AppBar(title: Text('order_details'.tr())),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: Text(_error!, textAlign: TextAlign.center),
+            child: Text(_error ?? 'Unknown error', textAlign: TextAlign.center),
           ),
         ),
       );
@@ -109,8 +178,8 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     final root = _root!;
     final order = Map<String, dynamic>.from(root['order'] ?? const {});
     final items = (root['items'] as List? ?? const [])
-        .whereType<Map>()
-        .map((e) => Map<String, dynamic>.from(e))
+        .whereType<dynamic>()
+        .map((e) => Map<String, dynamic>.from(e as Map))
         .toList(growable: false);
     final totals = Map<String, dynamic>.from(root['totals'] ?? const {});
 
@@ -136,172 +205,271 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         ((it['brandNameAr'] ?? '').toString().trim().isNotEmpty) ||
         ((it['brandNameEn'] ?? '').toString().trim().isNotEmpty));
 
+    // -------- status bits --------
+    final st = _status;
+    final statusName = () {
+      if (st == null) return '—';
+      final en = (st['statusNameEn'] ?? '').toString();
+      final ar = (st['statusNameAr'] ?? '').toString();
+      return isAr ? (ar.isNotEmpty ? ar : en) : (en.isNotEmpty ? en : ar);
+    }();
+    final statusIcon = _faToIconData((st?['icon'] ?? '').toString());
+    final statusAt = () {
+      final s = (st?['at'] ?? '').toString();
+      final dt = s.isNotEmpty ? DateTime.tryParse(s) : null;
+      return dt != null ? DateFormat('HH:mm dd/MM/yyyy').format(dt.toLocal()) : '—';
+    }();
+    final isFinished = st?['isOrderFinished'] == true;
+    final isCanceled = st?['isCanceled'] == true;
+    final statusColor = isCanceled
+        ? Colors.red
+        : (isFinished ? Colors.teal : primary);
+
     return Scaffold(
       appBar: AppBar(centerTitle: true, title: Text('order_details'.tr())),
       backgroundColor: const Color(0xFFF6F6F8),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-        children: [
-          _HeaderCapsule(
-            primaryColor: primary,
-            title: '${'order'.tr()} #$orderNumber',
-            subtitle: orderDate != null
-                ? DateFormat('HH:mm dd/MM/yyyy').format(orderDate.toLocal())
-                : '—',
-          ),
-          const SizedBox(height: 16),
-
-          _SectionCard(
-            primaryColor: primary,
-            title: 'status_new_order'.tr(),
-            child: ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: primary.withOpacity(.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(Icons.place_outlined, color: primary),
-              ),
-              title: Text(
-                addressTitle.isNotEmpty ? addressTitle : 'address'.tr(),
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              subtitle: Text(
-                [
-                  if (address.trim().isNotEmpty) address.trim(),
-                  if (governorateName.trim().isNotEmpty) governorateName.trim(),
-                  if (countryName.trim().isNotEmpty) countryName.trim(),
-                ].join(' · '),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              trailing: Icon(Icons.location_pin, color: primary),
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          children: [
+            _HeaderCapsule(
+              primaryColor: primary,
+              title: '${'order'.tr()} #$orderNumber',
+              subtitle: orderDate != null
+                  ? DateFormat('HH:mm dd/MM/yyyy').format(orderDate.toLocal())
+                  : '—',
             ),
-          ),
 
-          const SizedBox(height: 16),
+            const SizedBox(height: 16),
 
-          _SectionCard(
-            primaryColor: primary,
-            title: 'items'.tr(),
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        flex: hasBrandColumn ? 5 : 6,
-                        child: Text('item'.tr(),
-                            style: const TextStyle(fontWeight: FontWeight.w700)),
-                      ),
-                      if (hasBrandColumn)
+            // ---------- NEW: order status card ----------
+            _SectionCard(
+              primaryColor: primary,
+              title: 'order_status'.tr(), // si la clé manque, il affichera la clé
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(statusIcon, color: statusColor),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(statusName,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w700, fontSize: 16)),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(Icons.access_time, size: 14, color: Colors.black54),
+                            const SizedBox(width: 4),
+                            Text(
+                              statusAt,
+                              style: const TextStyle(
+                                  color: Colors.black54, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                        if (isCanceled)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.red.withOpacity(.09),
+                                border: Border.all(color: Colors.red.withOpacity(.25)),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text('canceled'.tr(),
+                                  style: const TextStyle(
+                                      color: Colors.red, fontWeight: FontWeight.w700)),
+                            ),
+                          )
+                        else if (isFinished)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.teal.withOpacity(.09),
+                                border: Border.all(color: Colors.teal.withOpacity(.25)),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text('done'.tr(),
+                                  style: const TextStyle(
+                                      color: Colors.teal, fontWeight: FontWeight.w700)),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            _SectionCard(
+              primaryColor: primary,
+              title: 'status_new_order'.tr(), // (ton ancien titre pour la section adresse)
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: primary.withOpacity(.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(Icons.place_outlined, color: primary),
+                ),
+                title: Text(
+                  addressTitle.isNotEmpty ? addressTitle : 'address'.tr(),
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                subtitle: Text(
+                  [
+                    if (address.trim().isNotEmpty) address.trim(),
+                    if (governorateName.trim().isNotEmpty) governorateName.trim(),
+                    if (countryName.trim().isNotEmpty) countryName.trim(),
+                  ].join(' · '),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                trailing: Icon(Icons.location_pin, color: primary),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            _SectionCard(
+              primaryColor: primary,
+              title: 'items'.tr(),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
+                    child: Row(
+                      children: [
                         Expanded(
-                          flex: 3,
-                          child: Text('brand'.tr(),
+                          flex: hasBrandColumn ? 5 : 6,
+                          child: Text('item'.tr(),
+                              style: const TextStyle(fontWeight: FontWeight.w700)),
+                        ),
+                        if (hasBrandColumn)
+                          Expanded(
+                            flex: 3,
+                            child: Text('brand'.tr(),
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(fontWeight: FontWeight.w700)),
+                          ),
+                        Expanded(
+                          flex: 2,
+                          child: Text('quantity'.tr(),
                               textAlign: TextAlign.center,
                               style: const TextStyle(fontWeight: FontWeight.w700)),
                         ),
-                      Expanded(
-                        flex: 2,
-                        child: Text('quantity'.tr(),
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(fontWeight: FontWeight.w700)),
-                      ),
-                      Expanded(
-                        flex: 2,
-                        child: Text('price'.tr(),
-                            textAlign: TextAlign.end,
-                            style: const TextStyle(fontWeight: FontWeight.w700)),
-                      ),
-                      Expanded(
-                        flex: 2,
-                        child: Text('total'.tr(),
-                            textAlign: TextAlign.end,
-                            style: const TextStyle(fontWeight: FontWeight.w700)),
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(height: 1),
-                if (items.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text('no_items'.tr(),
-                          style: TextStyle(color: Colors.grey.shade700)),
+                        Expanded(
+                          flex: 2,
+                          child: Text('price'.tr(),
+                              textAlign: TextAlign.end,
+                              style: const TextStyle(fontWeight: FontWeight.w700)),
+                        ),
+                        Expanded(
+                          flex: 2,
+                          child: Text('total'.tr(),
+                              textAlign: TextAlign.end,
+                              style: const TextStyle(fontWeight: FontWeight.w700)),
+                        ),
+                      ],
                     ),
-                  )
-                else
-                  ...items.map((it) {
-                    final nameEn = (it['nameEn'] ?? '').toString();
-                    final nameAr = (it['nameAr'] ?? '').toString();
-                    final name =
-                        isAr ? (nameAr.isNotEmpty ? nameAr : nameEn) : (nameEn.isNotEmpty ? nameEn : nameAr);
-                    final brand = isAr
-                        ? (it['brandNameAr'] ?? '').toString()
-                        : (it['brandNameEn'] ?? '').toString();
-                    final qty =
-                        (it['quantity'] as num?)?.toInt() ?? _toInt(it['quantity']) ?? 0;
-                    final price = _toDouble(it['price']);
-                    final line = _toDouble(it['lineTotal'] ?? (price * qty));
-
-                    return Padding(
-                      padding: const EdgeInsets.fromLTRB(4, 10, 4, 10),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            flex: hasBrandColumn ? 5 : 6,
-                            child: Text(name),
-                          ),
-                          if (hasBrandColumn)
-                            Expanded(
-                              flex: 3,
-                              child: Text(brand, textAlign: TextAlign.center),
-                            ),
-                          Expanded(
-                            flex: 2,
-                            child: Text('$qty', textAlign: TextAlign.center),
-                          ),
-                          Expanded(
-                            flex: 2,
-                            child: Text(price.toStringAsFixed(2),
-                                textAlign: TextAlign.end),
-                          ),
-                          Expanded(
-                            flex: 2,
-                            child: Text(line.toStringAsFixed(2),
-                                textAlign: TextAlign.end),
-                          ),
-                        ],
+                  ),
+                  const Divider(height: 1),
+                  if (items.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text('no_items'.tr(),
+                            style: TextStyle(color: Colors.grey.shade700)),
                       ),
-                    );
-                  }),
-              ],
-            ),
-          ),
+                    )
+                  else
+                    ...items.map((it) {
+                      final nameEn = (it['nameEn'] ?? '').toString();
+                      final nameAr = (it['nameAr'] ?? '').toString();
+                      final name =
+                          isAr ? (nameAr.isNotEmpty ? nameAr : nameEn) : (nameEn.isNotEmpty ? nameEn : nameAr);
+                      final brand = isAr
+                          ? (it['brandNameAr'] ?? '').toString()
+                          : (it['brandNameEn'] ?? '').toString();
+                      final qty =
+                          (it['quantity'] as num?)?.toInt() ?? _toInt(it['quantity']) ?? 0;
+                      final price = _toDouble(it['price']);
+                      final line = _toDouble(it['lineTotal'] ?? (price * qty));
 
-          const SizedBox(height: 16),
-
-          _SectionCard(
-            primaryColor: primary,
-            title: 'summary'.tr(),
-            child: Column(
-              children: [
-                _kv(context, 'sub_total'.tr() + ' :', subTotal),
-                _kv(context, 'discount'.tr() + ' :', -discountAmount,
-                    isDiscount: true),
-                _kv(context, 'shipping_cost'.tr() + ' :', deliveryFees),
-                Divider(color: Colors.brown.shade200, height: 18),
-                _kv(context, 'total'.tr() + ' :', total, bold: true),
-              ],
+                      return Padding(
+                        padding: const EdgeInsets.fromLTRB(4, 10, 4, 10),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              flex: hasBrandColumn ? 5 : 6,
+                              child: Text(name),
+                            ),
+                            if (hasBrandColumn)
+                              Expanded(
+                                flex: 3,
+                                child: Text(brand, textAlign: TextAlign.center),
+                              ),
+                            Expanded(
+                              flex: 2,
+                              child: Text('$qty', textAlign: TextAlign.center),
+                            ),
+                            Expanded(
+                              flex: 2,
+                              child: Text(price.toStringAsFixed(2),
+                                  textAlign: TextAlign.end),
+                            ),
+                            Expanded(
+                              flex: 2,
+                              child: Text(line.toStringAsFixed(2),
+                                  textAlign: TextAlign.end),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                ],
+              ),
             ),
-          ),
-        ],
+
+            const SizedBox(height: 16),
+
+            _SectionCard(
+              primaryColor: primary,
+              title: 'summary'.tr(),
+              child: Column(
+                children: [
+                  _kv(context, 'sub_total'.tr() + ' :', subTotal),
+                  _kv(context, 'discount'.tr() + ' :', -discountAmount, isDiscount: true),
+                  _kv(context, 'shipping_cost'.tr() + ' :', deliveryFees),
+                  Divider(color: Colors.brown.shade200, height: 18),
+                  _kv(context, 'total'.tr() + ' :', total, bold: true),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
       bottomNavigationBar: const CustomBottomNavBar(currentIndex: 0),
     );

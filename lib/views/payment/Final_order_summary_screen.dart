@@ -3,17 +3,30 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:frontendemart/routes/routes.dart';
+import 'package:frontendemart/viewmodels/PaymobViewModel.dart';
+import 'package:frontendemart/viewmodels/card_input.dart';
 import 'package:frontendemart/views/homeAdmin/custom_bottom_navbar.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
 
+import 'package:frontendemart/config/api.dart'; // ApiConfig.baseUrl
 import 'package:frontendemart/models/address_model.dart';
 import 'package:frontendemart/viewmodels/CartViewModel.dart';
 import 'package:frontendemart/viewmodels/Config_ViewModel.dart';
 import 'package:frontendemart/viewmodels/auth_viewmodel.dart';
 import 'package:frontendemart/services/cart_service.dart';
+
 import 'package:frontendemart/views/payment/choose_payment_method_screen.dart'
     show PaymentMethod;
+
+/* ---------- helper logs ---------- */
+DateTime _t0 = DateTime.now();
+void _log(String msg) {
+  final ms =
+      DateTime.now().difference(_t0).inMilliseconds.toString().padLeft(5, ' ');
+  debugPrint('🧾[OrderSummary+$ms] $msg');
+}
 
 /* --------- helpers UI --------- */
 Color _parseHexColor(String? hex, {Color fallback = const Color(0xFF0B1E6D)}) {
@@ -33,18 +46,24 @@ class FinalOrderSummaryScreen extends StatefulWidget {
     super.key,
     required this.address,
     required this.method,
+    this.card,
   });
 
   final Address address;
   final PaymentMethod method;
+  final CardInput? card;
 
   @override
-  State<FinalOrderSummaryScreen> createState() => _FinalOrderSummaryScreenState();
+  State<FinalOrderSummaryScreen> createState() =>
+      _FinalOrderSummaryScreenState();
 }
 
 class _FinalOrderSummaryScreenState extends State<FinalOrderSummaryScreen> {
   final _promo = TextEditingController();
   final _notes = TextEditingController();
+
+  bool _promoValid = false;
+  String? _appliedPromoCode;
 
   DeliverySlot _slot = DeliverySlot.any;
   double _discount = 0;
@@ -54,10 +73,27 @@ class _FinalOrderSummaryScreenState extends State<FinalOrderSummaryScreen> {
   int? _userId;
   bool _loadingUserId = true;
 
+  // --- Delivery fees state ---
+  bool _loadingFees = false;
+  double? _deliveryFees; // frais bruts renvoyés par l'API
+  double? _minFree; // seuil de gratuité
+  String? _matchedState; // info debug
+
+  // --- Country support ---
+  bool get _isSupportedCountry {
+    final c = (widget.address.countryName ?? '').trim().toLowerCase();
+    // adapte cette liste si tu actives d'autres pays
+    return c == 'egypt' || c == 'egypte' || c == 'مصر';
+  }
+
+  String get _countryDbg => (widget.address.countryName ?? '—').trim();
+
   @override
   void initState() {
     super.initState();
     _loadUserId();
+    // On calcule les frais après le premier frame
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fetchDeliveryQuote());
   }
 
   @override
@@ -106,13 +142,13 @@ class _FinalOrderSummaryScreenState extends State<FinalOrderSummaryScreen> {
   }
 
   Future<void> _loadUserId() async {
-    debugPrint('[OrderSummary] loadUserId()…');
+    _log('loadUserId()…');
 
     // 1) AuthViewModel
     final vm = _tryGetAuthVm();
     int? id = _extractUserIdFromMap(vm?.userData);
     if (id != null) {
-      debugPrint('[OrderSummary] userId from AuthViewModel = $id');
+      _log('userId from AuthViewModel = $id');
       setState(() {
         _userId = id;
         _loadingUserId = false;
@@ -124,7 +160,7 @@ class _FinalOrderSummaryScreenState extends State<FinalOrderSummaryScreen> {
     final prefs = await SharedPreferences.getInstance();
     id = prefs.getInt('user_id');
     if (id != null) {
-      debugPrint('[OrderSummary] userId from SharedPreferences(user_id) = $id');
+      _log('userId from SharedPreferences(user_id) = $id');
       setState(() {
         _userId = id;
         _loadingUserId = false;
@@ -144,7 +180,7 @@ class _FinalOrderSummaryScreenState extends State<FinalOrderSummaryScreen> {
             payload?['sub'],
       );
       if (fromJwt != null) {
-        debugPrint('[OrderSummary] userId from JWT payload = $fromJwt');
+        _log('userId from JWT payload = $fromJwt');
         setState(() {
           _userId = fromJwt;
           _loadingUserId = false;
@@ -152,43 +188,208 @@ class _FinalOrderSummaryScreenState extends State<FinalOrderSummaryScreen> {
         await prefs.setInt('user_id', fromJwt);
         return;
       }
-      debugPrint('[OrderSummary] JWT found but no usable id in payload');
+      _log('JWT found but no usable id in payload');
     } else {
-      debugPrint('[OrderSummary] no token in SharedPreferences');
+      _log('no token in SharedPreferences');
     }
 
-    debugPrint('[OrderSummary] userId not found');
+    _log('userId not found');
     if (mounted) setState(() => _loadingUserId = false);
   }
 
-  /* ====================== PROMO & SLOTS ====================== */
+  /* ====================== DELIVERY FEES (API) ====================== */
 
-  Future<void> _applyPromo(double subtotal) async {
-    setState(() => _validating = true);
+  double _currentSubTotal() {
+    final cart = Provider.of<CartViewModel>(context, listen: false);
+    return cart.items.fold<double>(0, (s, it) => s + (it.price * it.qty));
+  }
+
+  // Frais effectifs (0 si gratuité) – ATTENTION: gratuité seulement si minFree > 0
+  double _effectiveDeliveryFee(double subtotal) {
+    final fees = _deliveryFees ?? 0.0;
+    final min = _minFree;
+    if (min != null && min > 0 && subtotal >= min) return 0.0;
+    return fees;
+  }
+
+  // --- helpers ---
+  String _numStr(double n) {
+    // valeur canonique attendue par le back: "1234.56"
+    final s = n.toStringAsFixed(2); // pas de locale -> déjà avec un point
+    return s.replaceAll(',', '.'); // sécurité si une lib a injecté des virgules
+  }
+
+  double _toDoubleAny(dynamic v, {double fallback = 0.0}) {
+    if (v == null) return fallback;
+    if (v is num) return v.toDouble();
+    final s = ('$v').trim().replaceAll(',', '.');
+    return double.tryParse(s) ?? fallback;
+  }
+
+  // --- fetch fees ---
+  Future<void> _fetchDeliveryQuote() async {
     try {
-      final code = _promo.text.trim();
-      debugPrint('[OrderSummary] applyPromo code="$code" subtotal=$subtotal');
-      if (code.isEmpty) {
-        setState(() => _discount = 0);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('enter_promo_code_first'.tr())),
-        );
+      setState(() {
+        _loadingFees = true;
+        _deliveryFees = null;
+        _minFree = null;
+        _matchedState = null;
+      });
+
+      final sub = _currentSubTotal();
+      final addrId = widget.address.userLocationId;
+
+      // 1) Pays supporté ?
+      _log('fees: country="$_countryDbg", supported=$_isSupportedCountry, subtotal=$sub');
+      if (!_isSupportedCountry) {
+        _log('fees: country not supported → skip API, set fees=0');
+        setState(() {
+          _deliveryFees = 0.0;
+          _minFree = null;
+          _matchedState = null;
+        });
         return;
       }
-      // Exemple local: SAVE10 = -10%
-      final rate = code.toUpperCase() == 'SAVE10' ? 0.10 : 0.0;
-      final d = subtotal * rate;
-      debugPrint('[OrderSummary] promo → rate=$rate discount=$d');
-      setState(() => _discount = d);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content:
-                Text(rate > 0 ? 'promo_applied'.tr() : 'invalid_promo'.tr())),
+
+      // 2) Appel API (Egypte)
+      final qp = <String, String>{
+        'userLocationId': addrId.toString(), // toujours string
+        'subTotal': _numStr(sub), // ← **string numérique** "220.00"
+      };
+      final uri =
+          Uri.parse('${ApiConfig.baseUrl}/orders/delivery-quote').replace(
+        queryParameters: qp,
       );
+
+      _log(
+          'fees: qp -> userLocationId=${qp['userLocationId']} subTotal=${qp['subTotal']}');
+      _log('fees: GET $uri');
+      _log('fees: uri.query="${uri.query}"');
+
+      final res = await http
+          .get(uri, headers: {'Accept': 'application/json'})
+          .timeout(const Duration(seconds: 12));
+
+      _log('fees: response ${res.statusCode} body=${res.body}');
+      if (res.statusCode < 200 || res.statusCode >= 300) {
+        throw Exception('delivery-quote failed: ${res.statusCode}');
+      }
+
+      final map = json.decode(res.body) as Map<String, dynamic>;
+      final fees = _toDoubleAny(map['deliveryFees']);
+      final minFree = _toDoubleAny(map['minFree']);
+      final stateName = (map['matchedState'] as String?)?.trim();
+
+      setState(() {
+        _deliveryFees = fees;
+        _minFree = minFree;
+        _matchedState = (stateName?.isEmpty ?? true) ? null : stateName;
+      });
+
+      final freeNow = (minFree > 0) && sub >= minFree;
+      _log(
+          'fees: parsed → fees=$fees, minFree=$minFree, state="${_matchedState ?? '—'}", freeNow=$freeNow, subtotal=$sub');
+
+      if (freeNow && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('free_delivery'.tr()),
+              backgroundColor: Colors.green),
+        );
+      }
+    } catch (e, st) {
+      _log('fees: ERROR → $e\n$st');
+      // fallback safe
+      setState(() {
+        _deliveryFees = 0.0;
+        _minFree = null;
+        _matchedState = null;
+      });
     } finally {
-      setState(() => _validating = false);
+      if (mounted) setState(() => _loadingFees = false);
     }
   }
+
+  /* ====================== PROMO (via backend) & SLOTS ====================== */
+
+  Future<void> _applyPromo(double subtotal) async {
+  setState(() => _validating = true);
+  try {
+    final code = _promo.text.trim();
+    if (code.isEmpty) {
+      setState(() {
+        _discount = 0;
+        _promoValid = false;
+        _appliedPromoCode = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('enter_promo_code_first'.tr())),
+      );
+      return;
+    }
+
+    _log('applyPromo → code="$code" subtotal=$subtotal');
+
+    final res = await CartService.previewPromo(
+      code: code,
+      subTotal: subtotal,
+    );
+
+    final valid = (res['valid'] == true);
+    final discount = _toDoubleAny(res['discount'], fallback: 0.0);
+    final reason = (res['reason'] as String?)?.toUpperCase() ?? '';
+
+    if (valid && discount > 0) {
+      setState(() {
+        _promoValid = true;
+        _appliedPromoCode = code;
+        _discount = discount; // montant validé serveur
+      });
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('promo_applied'.tr())));
+    } else {
+      setState(() {
+        _promoValid = false;
+        _appliedPromoCode = null;
+        _discount = 0;
+      });
+
+      String msg = 'invalid_promo'.tr();
+      switch (reason) {
+        case 'EXPIRED':
+          msg = 'promo_expired'.tr();
+          break;
+        case 'MIN_ORDER_NOT_REACHED':
+          msg = 'promo_min_order_not_reached'.tr();
+          break;
+        case 'MAX_USERS_REACHED':
+          msg = 'promo_max_users_reached'.tr();
+          break;
+        case 'USER_USAGE_LIMIT':
+          msg = 'promo_usage_limit_reached'.tr();
+          break;
+        case 'NOT_FOUND':
+        case 'INACTIVE':
+        case 'ZERO_DISCOUNT':
+        default:
+          msg = 'invalid_promo'.tr();
+      }
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    }
+  } catch (e, st) {
+    _log('promo: ERROR → $e\n$st');
+    setState(() {
+      _promoValid = false;
+      _appliedPromoCode = null;
+      _discount = 0;
+    });
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('something_went_wrong'.tr())));
+  } finally {
+    if (mounted) setState(() => _validating = false);
+  }
+}
+
 
   String _slotLabel(DeliverySlot s) {
     switch (s) {
@@ -270,7 +471,7 @@ class _FinalOrderSummaryScreenState extends State<FinalOrderSummaryScreen> {
                 onPressed: orderId == null
                     ? null
                     : () {
-                        Navigator.of(ctx).pop(); // ferme le popup
+                        Navigator.of(ctx).pop();
                         Navigator.pushReplacementNamed(
                           context,
                           AppRoutes.orderDetails,
@@ -283,7 +484,8 @@ class _FinalOrderSummaryScreenState extends State<FinalOrderSummaryScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primary,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
                   elevation: 0,
@@ -292,7 +494,7 @@ class _FinalOrderSummaryScreenState extends State<FinalOrderSummaryScreen> {
             ),
             TextButton(
               onPressed: () {
-                Navigator.of(ctx).pop(); // ferme le popup
+                Navigator.of(ctx).pop();
                 Navigator.pushNamedAndRemoveUntil(
                     context, AppRoutes.home, (_) => false);
               },
@@ -304,75 +506,65 @@ class _FinalOrderSummaryScreenState extends State<FinalOrderSummaryScreen> {
     );
   }
 
-  /// Appelé après création de commande : vide le panier, sauvegarde id/numéro,
-  /// et affiche le popup de succès.
   Future<void> _onOrderCreated(
       Map<String, dynamic> res, Color primary) async {
     int? _toInt(dynamic v) => v is int ? v : int.tryParse('${v ?? ''}');
     String _toStr(dynamic v) => (v ?? '').toString();
 
-    final orderId =
-        _toInt(res['orderId'] ?? res['OrderID'] ?? res['order']?['orderId']);
-    final orderNumber = _toStr(
-        res['orderNumber'] ?? res['OrderNumber'] ?? res['order']?['orderNumber']);
+    final orderId = _toInt(
+        res['orderId'] ?? res['OrderID'] ?? res['order']?['orderId']);
+    final orderNumber = _toStr(res['orderNumber'] ??
+        res['OrderNumber'] ??
+        res['order']?['orderNumber']);
 
-    // Fallback dans SharedPrefs
     final prefs = await SharedPreferences.getInstance();
     if (orderId != null) await prefs.setInt('last_order_id', orderId);
     await prefs.setString('last_order_number', orderNumber);
 
-    // Vider le panier
     context.read<CartViewModel>().clear();
-    debugPrint('[Cart] cleared after order (orderId=$orderId)');
+    _log('[Cart] cleared after order (orderId=$orderId)');
 
     if (!mounted) return;
     await _showOrderSuccessDialog(
-      orderId: orderId,
-      orderNumber: orderNumber,
-      primary: primary,
-    );
+        orderId: orderId, orderNumber: orderNumber, primary: primary);
   }
 
   /* ====================== UI ====================== */
 
   @override
   Widget build(BuildContext context) {
-    // rebuild si langue change
     final _ = context.locale;
 
     final config = context.watch<ConfigViewModel>().config;
     final primary = _parseHexColor(config?.ciPrimaryColor);
     final isAr = context.locale.languageCode.toLowerCase().startsWith('ar');
 
-    // 🛒 Panier persistant via ViewModel
     final cart = context.watch<CartViewModel>();
     final items = cart.items;
     final units = items.fold<int>(0, (s, it) => s + it.qty);
     final subtotal =
         items.fold<double>(0, (s, it) => s + (it.price * it.qty));
 
-    // ✅ pour l’instant ces coûts sont à 0.00
-    const double deliveryFee = 0.0;
+    // Frais effectifs selon le seuil
+    final deliveryFee = _effectiveDeliveryFee(subtotal);
     const double shipping = 0.0;
 
     final total =
         (subtotal + deliveryFee + shipping - _discount).clamp(0, double.infinity);
 
-    // Logs build
-    debugPrint(
-      '[OrderSummary] build: userId=${_userId ?? "—"} | items=${items.length}, units=$units, '
-      'sub=$subtotal, delivery=$deliveryFee, shipping=$shipping, discount=$_discount, total=$total '
-      '| addrId=${widget.address.userLocationId}, method=${widget.method}',
+    _log(
+      'build: uid=${_userId ?? "—"} | items=${items.length}, units=$units, '
+      'sub=$subtotal, rawFees=${_deliveryFees ?? "—"}, minFree=${_minFree ?? "—"}, effective=${deliveryFee}, '
+      'discount=$_discount, total=$total | addrId=${widget.address.userLocationId}, method=${widget.method}, '
+      'country="$_countryDbg", supported=$_isSupportedCountry',
     );
 
     if (_loadingUserId) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+          body: Center(child: CircularProgressIndicator()));
     }
 
-    return Scaffold
-    (
+    return Scaffold(
       backgroundColor: const Color(0xFFF6F6F8),
       appBar: AppBar(
         elevation: 0,
@@ -387,61 +579,291 @@ class _FinalOrderSummaryScreenState extends State<FinalOrderSummaryScreen> {
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
         children: [
           _HeaderCapsule(
-            primaryColor: primary,
-            title: 'order_summary'.tr(),
-            subtitle: 'review_your_order'.tr(),
-          ),
+              primaryColor: primary,
+              title: 'order_summary'.tr(),
+              subtitle: 'review_your_order'.tr()),
           const SizedBox(height: 16),
 
-          /* ---- Delivery address ---- */
+          /* ---- Delivery address & Payment Method ---- */
           _SectionCard(
             primaryColor: primary,
             title: 'delivery_address'.tr(),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(children: [
-                  const Icon(Icons.place_outlined, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      [
-                        if ((widget.address.title ?? '').trim().isNotEmpty)
-                          widget.address.title!.trim(),
-                        if ((widget.address.address ?? '').trim().isNotEmpty)
-                          widget.address.address!.trim(),
-                        if ((widget.address.governorateName ?? '')
-                            .trim()
-                            .isNotEmpty)
-                          widget.address.governorateName!.trim(),
-                        if ((widget.address.countryName ?? '').trim().isNotEmpty)
-                          widget.address.countryName!.trim(),
-                      ].join(' · '),
-                      style:
-                          const TextStyle(fontWeight: FontWeight.w600),
+                // Adresse
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: primary.withOpacity(.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(Icons.place_outlined,
+                          size: 20, color: primary),
                     ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                        children: [
+                          if ((widget.address.title ?? '')
+                              .trim()
+                              .isNotEmpty)
+                            Text(
+                              widget.address.title!.trim(),
+                              style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF2B2B2B)),
+                            ),
+                          const SizedBox(height: 4),
+                          Text(
+                            [
+                              if ((widget.address.address ?? '')
+                                  .trim()
+                                  .isNotEmpty)
+                                widget.address.address!.trim(),
+                              if ((widget.address.governorateName ?? '')
+                                  .trim()
+                                  .isNotEmpty)
+                                widget.address.governorateName!.trim(),
+                              if ((widget.address.countryName ?? '')
+                                  .trim()
+                                  .isNotEmpty)
+                                widget.address.countryName!.trim(),
+                            ].join(', '),
+                            style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey.shade700,
+                                height: 1.4),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                // Bandeau frais / gratuité
+                const SizedBox(height: 12),
+                if (_loadingFees) ...[
+                  Row(
+                    children: [
+                      const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2),
+                      ),
+                      const SizedBox(width: 8),
+                      Text('calculating_delivery_fees'.tr(),
+                          style: TextStyle(color: Colors.grey.shade700)),
+                    ],
                   ),
-                ]),
-                const SizedBox(height: 10),
-                Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: primary.withOpacity(.12),
-                      borderRadius: BorderRadius.circular(20),
-                      border:
-                          Border.all(color: primary.withOpacity(.25)),
+                ] else ...[
+                  Builder(builder: (_) {
+                    final isFree = (_minFree != null &&
+                        _minFree! > 0 &&
+                        subtotal >= _minFree!);
+                    final isUnsupported = !_isSupportedCountry;
+
+                    _log(
+                        'fees: banner → isFree=$isFree isUnsupported=$isUnsupported usedFee=$deliveryFee');
+
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: isUnsupported
+                            ? Colors.orange.withOpacity(.08)
+                            : (isFree
+                                ? Colors.green.withOpacity(.06)
+                                : primary.withOpacity(.06)),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: isUnsupported
+                              ? Colors.orange.withOpacity(.5)
+                              : (isFree
+                                  ? Colors.green.withOpacity(.4)
+                                  : primary.withOpacity(.3)),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            isUnsupported
+                                ? Icons.public_off
+                                : (isFree
+                                    ? Icons.local_shipping
+                                    : Icons.local_shipping_outlined),
+                            size: 18,
+                            color: isUnsupported
+                                ? Colors.orange
+                                : (isFree ? Colors.green : primary),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              isUnsupported
+                                  ? '${'delivery'.tr()}: ${'not_available'.tr()}'
+                                  : (isFree
+                                      ? 'free_delivery'.tr()
+                                      : '${'delivery'.tr()}: ${deliveryFee.toStringAsFixed(2)}'),
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: isUnsupported
+                                    ? Colors.orange
+                                    : (isFree
+                                        ? Colors.green
+                                        : primary),
+                              ),
+                            ),
+                          ),
+                          if (!isUnsupported &&
+                              _minFree != null &&
+                              _minFree! > 0 &&
+                              !isFree)
+                            Text(
+                              '${'free_over'.tr()} ${_minFree!.toStringAsFixed(2)}',
+                              style: TextStyle(
+                                  color: Colors.grey.shade600,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600),
+                            ),
+                        ],
+                      ),
+                    );
+                  }),
+                  if ((_matchedState ?? '').isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text('${'region'.tr()}: ${_matchedState!}',
+                        style: TextStyle(
+                            color: Colors.grey.shade600, fontSize: 12)),
+                  ],
+                ],
+
+                const SizedBox(height: 16),
+                Divider(color: Colors.grey.shade200, height: 1),
+                const SizedBox(height: 16),
+
+                // Mode de paiement
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: primary.withOpacity(.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        widget.method == PaymentMethod.cod
+                            ? Icons.money_rounded
+                            : Icons.credit_card_rounded,
+                        size: 20,
+                        color: primary,
+                      ),
                     ),
-                    child: Text(
-                      widget.method == PaymentMethod.cod
-                          ? 'cash_on_delivery'.tr()
-                          : 'card'.tr(),
-                      style: TextStyle(
-                          color: primary, fontWeight: FontWeight.w700),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                        children: [
+                          Text('payment_method'.tr(),
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey.shade600,
+                                  letterSpacing: 0.5)),
+                          const SizedBox(height: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: primary.withOpacity(.08),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                  color: primary.withOpacity(.3),
+                                  width: 1.5),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                    widget.method ==
+                                            PaymentMethod.cod
+                                        ? Icons.payments_outlined
+                                        : Icons.credit_card,
+                                    size: 16,
+                                    color: primary),
+                                const SizedBox(width: 8),
+                                Text(
+                                  widget.method ==
+                                          PaymentMethod.cod
+                                      ? 'cash_on_delivery'.tr()
+                                      : 'card_payment'.tr(),
+                                  style: TextStyle(
+                                      color: primary,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          if (widget.method ==
+                                  PaymentMethod.card &&
+                              widget.card != null) ...[
+                            const SizedBox(height: 10),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade50,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                    color: Colors.grey.shade200),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.credit_card,
+                                      size: 18,
+                                      color: Colors.grey.shade600),
+                                  const SizedBox(width: 10),
+                                  Container(
+                                    padding: const EdgeInsets
+                                        .symmetric(
+                                            horizontal: 8,
+                                            vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.shade50,
+                                      borderRadius:
+                                          BorderRadius.circular(6),
+                                      border: Border.all(
+                                          color:
+                                              Colors.green.shade200),
+                                    ),
+                                    child: Text(
+                                      'verified'.tr(),
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                          color:
+                                              Colors.green.shade700),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ],
             ),
@@ -463,8 +885,7 @@ class _FinalOrderSummaryScreenState extends State<FinalOrderSummaryScreen> {
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: Text('no_items'.tr(),
-                          style: TextStyle(
-                              color: Colors.grey.shade700)),
+                          style: TextStyle(color: Colors.grey.shade700)),
                     ),
                   )
                 else
@@ -477,8 +898,8 @@ class _FinalOrderSummaryScreenState extends State<FinalOrderSummaryScreen> {
                             ? it.nameEn!
                             : (it.nameAr ?? ''));
                     final line = it.price * it.qty;
-                    debugPrint(
-                        '[OrderSummary] line: id=${it.sellerItemID}, qty=${it.qty}, price=${it.price}');
+                    _log(
+                        'line: id=${it.sellerItemID}, qty=${it.qty}, price=${it.price}');
                     return Padding(
                       padding: const EdgeInsets.fromLTRB(4, 10, 4, 10),
                       child: Row(
@@ -564,8 +985,7 @@ class _FinalOrderSummaryScreenState extends State<FinalOrderSummaryScreen> {
                     onChanged: (v) {
                       if (v == null) return;
                       setState(() => _slot = v);
-                      debugPrint(
-                          '[OrderSummary] slot changed → ${_slotLabel(v)}');
+                      _log('slot changed → ${_slotLabel(v)}');
                     },
                     title: Text(label),
                   );
@@ -611,14 +1031,19 @@ class _FinalOrderSummaryScreenState extends State<FinalOrderSummaryScreen> {
               onPressed: _submitting
                   ? null
                   : () async {
+                      _log('--- CHECKOUT TAPPED ---');
+                      _log(
+                          'method=${widget.method} | submitting=$_submitting | loadingUserId=$_loadingUserId');
+                      _log(
+                          'checkout: will send → deliveryFees=$deliveryFee discount=$_discount total=$total');
+
                       final userId = _userId;
                       if (userId == null) {
-                        debugPrint(
-                            '[OrderSummary] checkout blocked → no userId');
+                        _log('⛔ userId is null → ask login');
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                               content:
-                                  Text(tr('please_login_first'))),
+                                  Text('please_login_first'.tr())),
                         );
                         return;
                       }
@@ -628,50 +1053,127 @@ class _FinalOrderSummaryScreenState extends State<FinalOrderSummaryScreen> {
                       final end = _slotEnd(now).toUtc();
                       final int userLocationId =
                           widget.address.userLocationId;
-
-                      // transforme le panier en lignes pour l’API
                       final itemsPayload = context
                           .read<CartViewModel>()
                           .toOrderItemsPayload();
 
-                      final payloadLog = {
-                        "userId": userId,
-                        "userLocationId": userLocationId,
-                        "invoicePaymentMethodId":
-                            widget.method == PaymentMethod.cod ? 1 : 2,
-                        "deliveryStartTime": start.toIso8601String(),
-                        "deliveryEndTime": end.toIso8601String(),
-                        "discountAmount": _discount,
-                        "deliveryFees": 0.0,
-                        "total": total.toDouble(),
-                        "itemsCount": itemsPayload.length,
-                      };
-                      debugPrint(
-                          '[OrderSummary] → placeOrder payload (preview) $payloadLog');
+                      // code promo (seulement si validé par l’API)
+                      final appliedCode =
+                          (_promoValid && (_appliedPromoCode ?? '').isNotEmpty)
+                              ? _appliedPromoCode!.trim()
+                              : null;
+
+                      _log(
+                          'payload preview → userId=$userId, addrId=$userLocationId, items=${itemsPayload.length}, discount=$_discount, start=$start, end=$end, promo="$appliedCode"');
 
                       setState(() => _submitting = true);
-                      try {
-                        final res = await CartService.placeOrder(
-                          userId: userId,
-                          userLocationId: userLocationId,
-                          method: widget.method,
-                          deliveryStart: start,
-                          deliveryEnd: end,
-                          total: total.toDouble(),
-                          deliveryFees: 0,
-                          discountAmount: _discount,
-                          userPromoCodeId: null,
-                          additionalNotes: _notes.text.trim().isEmpty
-                              ? null
-                              : _notes.text.trim(),
-                          items: itemsPayload,
-                        );
-                        debugPrint('✅ ORDER CREATED OK → $res');
 
-                        if (!mounted) return;
-                        await _onOrderCreated(res, primary);
-                      } catch (e) {
-                        debugPrint('❌ placeOrder error: $e');
+                      try {
+                        if (widget.method == PaymentMethod.cod) {
+                          _log(
+                              '🟠 COD mode → calling CartService.placeOrder()');
+                          final res = await CartService.placeOrder(
+                            userId: userId,
+                            userLocationId: userLocationId,
+                            method: widget.method,
+                            deliveryStart: start,
+                            deliveryEnd: end,
+                            total: total.toDouble(),
+                            deliveryFees: deliveryFee, // frais effectifs
+                            discountAmount: _discount,
+                            userPromoCodeId: null,
+                            additionalNotes: _notes.text.trim().isEmpty
+                                ? null
+                                : _notes.text.trim(),
+                            items: itemsPayload,
+                            promoCode: appliedCode, // 👈 passe le code
+                          );
+                          _log('✅ placeOrder (COD) OK → $res');
+                          if (!mounted) return;
+                          await _onOrderCreated(
+                              res,
+                              _parseHexColor(context
+                                  .read<ConfigViewModel>()
+                                  .config
+                                  ?.ciPrimaryColor));
+                          _log('🎉 Success flow done (COD)');
+                        } else {
+                          _log(
+                              '🔵 CARD mode → via PaymobViewModel.payWithCard()');
+                          if (widget.card == null) {
+                            _log(
+                                '⚠️ widget.card == null (UI a permis card mode sans card?)');
+                          } else {
+                            final nb = widget.card!.number;
+                            final last4 = nb.isNotEmpty
+                                ? nb.substring(nb.length - 4)
+                                : '????';
+                            _log(
+                                'card.masked=**** **** **** $last4 exp=${widget.card!.expMonth}/${widget.card!.expYear}');
+                          }
+
+                          final paymobVm =
+                              context.read<PaymobViewModel>();
+                          _log('[VM] payWithCard() → CALL');
+                          final result =
+                              await paymobVm.payWithCard(
+                            userId: userId,
+                            userLocationId: userLocationId,
+                            total: total.toDouble(),
+                            items: itemsPayload,
+                            additionalNotes: _notes.text.trim().isEmpty
+                                ? null
+                                : _notes.text.trim(),
+                            deliveryFees: deliveryFee, // frais effectifs
+                            discountAmount: _discount,
+                            userPromoCodeId: null,
+                            promoCode: appliedCode, // 👈 passe le code
+                            deliveryStartTime: start,
+                            deliveryEndTime: end,
+                            appName: 'Ma Boutique',
+                            buttonBackgroundColor: _parseHexColor(
+                                context
+                                    .read<ConfigViewModel>()
+                                    .config
+                                    ?.ciPrimaryColor),
+                            buttonTextColor: Colors.white,
+                            saveCardDefault: true,
+                            showSaveCard: true,
+                          );
+                          _log('[VM] payWithCard() → RETURN result="$result"');
+
+                          if (!mounted) return;
+                          switch (result) {
+                            case 'Successfull':
+                              _log('🏁 SDK says Successfull');
+                              ScaffoldMessenger.of(context)
+                                  .showSnackBar(SnackBar(
+                                      content: Text('payment_success'.tr())));
+                              break;
+                            case 'Rejected':
+                              _log('🟥 SDK says Rejected');
+                              ScaffoldMessenger.of(context)
+                                  .showSnackBar(SnackBar(
+                                      content: Text('payment_rejected'.tr())));
+                              break;
+                            case 'Pending':
+                              _log('🟨 SDK says Pending');
+                              ScaffoldMessenger.of(context)
+                                  .showSnackBar(SnackBar(
+                                      content: Text('payment_pending'.tr())));
+                              break;
+                            default:
+                              _log(
+                                  '❔ SDK returned unknown="$result" (channel non implémenté ?)');
+                              ScaffoldMessenger.of(context)
+                                  .showSnackBar(SnackBar(
+                                      content: Text(
+                                          'something_went_wrong'.tr())));
+                          }
+                        }
+                      } catch (e, st) {
+                        _log('💥 Exception during checkout: $e');
+                        _log('stacktrace:\n$st');
                         if (!mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
@@ -681,13 +1183,15 @@ class _FinalOrderSummaryScreenState extends State<FinalOrderSummaryScreen> {
                       } finally {
                         if (mounted) {
                           setState(() => _submitting = false);
+                          _log('--- CHECKOUT FINISHED (submitting=false) ---');
                         }
                       }
                     },
               style: ElevatedButton.styleFrom(
                 backgroundColor: primary,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14)),
                 elevation: 0,
@@ -697,8 +1201,7 @@ class _FinalOrderSummaryScreenState extends State<FinalOrderSummaryScreen> {
           ),
         ],
       ),
-              bottomNavigationBar: const CustomBottomNavBar(currentIndex: 0),
-
+      bottomNavigationBar: const CustomBottomNavBar(currentIndex: 0),
     );
   }
 
@@ -715,8 +1218,7 @@ class _FinalOrderSummaryScreenState extends State<FinalOrderSummaryScreen> {
                   style: const TextStyle(fontWeight: FontWeight.w700))),
           Expanded(
               flex: 2,
-              child:
-                  Text('qty'.tr(), textAlign: TextAlign.center)),
+              child: Text('qty'.tr(), textAlign: TextAlign.center)),
           Expanded(
               flex: 3,
               child: Text('price'.tr(), textAlign: TextAlign.end)),
@@ -729,8 +1231,8 @@ class _FinalOrderSummaryScreenState extends State<FinalOrderSummaryScreen> {
   }
 
   Widget _kv(String k, double v, {bool bold = false}) {
-    final style =
-        TextStyle(fontWeight: bold ? FontWeight.w800 : FontWeight.w600);
+    final style = TextStyle(
+        fontWeight: bold ? FontWeight.w800 : FontWeight.w600);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -765,16 +1267,13 @@ class _HeaderCapsule extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            primaryColor.withOpacity(.85),
-            primaryColor.withOpacity(.65)
-          ],
+          colors: [primaryColor.withOpacity(.85), primaryColor.withOpacity(.65)],
         ),
         boxShadow: [
           BoxShadow(
               color: Colors.black.withOpacity(.07),
               blurRadius: 16,
-              offset: const Offset(0, 8))
+              offset: const Offset(0, 8)),
         ],
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -798,8 +1297,7 @@ class _HeaderCapsule extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600)),
+                        color: Colors.white, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 4),
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -853,14 +1351,16 @@ class _SectionCard extends StatelessWidget {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+            padding:
+                const EdgeInsets.fromLTRB(16, 14, 16, 10),
             child: Row(
               children: [
                 Container(
                     width: 8,
                     height: 8,
                     decoration: BoxDecoration(
-                        color: primaryColor, shape: BoxShape.circle)),
+                        color: primaryColor,
+                        shape: BoxShape.circle)),
                 const SizedBox(width: 8),
                 Text(title,
                     style: const TextStyle(

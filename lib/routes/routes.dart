@@ -1,66 +1,76 @@
 // lib/routes/routes.dart
 import 'package:flutter/material.dart';
 
-import 'package:frontendemart/views/Auth/SplashScreen.dart';
+// Models
+import 'package:frontendemart/models/address_model.dart';
+import 'package:frontendemart/viewmodels/card_input.dart';
+
+// Auth
 import 'package:frontendemart/views/Auth/login_screen.dart';
 import 'package:frontendemart/views/Auth/signup_screen.dart';
 
-import 'package:frontendemart/models/address_model.dart';
+// Home
+import 'package:frontendemart/views/homeAdmin/home_screen.dart';
+
+// Orders / Addresses
 import 'package:frontendemart/views/Items/ChooseAddressScreen.dart';
 import 'package:frontendemart/views/Ordres/AddAddressScreen.dart';
-import 'package:frontendemart/views/Ordres/order_history_screen.dart';
-import 'package:frontendemart/views/payment/Final_order_summary_screen.dart';
 import 'package:frontendemart/views/Ordres/OrderDetailsScreen.dart';
+import 'package:frontendemart/views/Ordres/order_history_screen.dart';
+
+// Payment flow
+// ⚠️ Vérifie bien le chemin réel du fichier du récapitulatif.
+// Si ton écran s’appelle lib/views/Ordres/OrderSummaryScreen.dart, importe-le ici.
+// Ci-dessous on garde le nom/classe utilisés dans tes snippets: FinalOrderSummaryScreen.
+import 'package:frontendemart/views/payment/Final_order_summary_screen.dart';
+import 'package:frontendemart/views/payment/add_card_screen.dart';
 import 'package:frontendemart/views/payment/choose_payment_method_screen.dart'
     show ChoosePaymentMethodScreen, PaymentMethod;
 
-import 'package:frontendemart/views/homeAdmin/home_screen.dart';
-
 class AppRoutes {
-  static const String splash        = '/';
-  static const String login         = '/login';
-  static const String signup        = '/signup';
-  static const String home          = '/home';
+  // ----- Names -----
+  static const String login          = '/login';
+  static const String signup         = '/signup';
+  static const String home           = '/home';
 
-  static const String chooseAddress = '/orders/choose-address';
-  static const String addAddress    = '/orders/add-address';
-  static const String editAddress   = '/orders/edit-address';
+  static const String chooseAddress  = '/orders/choose-address';
+  static const String addAddress     = '/orders/add-address';
+  static const String editAddress    = '/orders/edit-address';
 
-  static const String choosePayment = '/payment/choose-method';
-  static const String addCard       = '/payment/add-card'; // (si tu as un écran plus tard)
-  static const String orderSummary  = '/payment/order-summary';
+  static const String choosePayment  = '/payment/choose-method';
+  static const String addCard        = '/payment/add-card';
+  static const String orderSummary   = '/payment/order-summary';
 
-  static const String orderSuccess  = '/orders/success';
-  static const String orderDetails  = '/orders/details';
+  static const String orderSuccess   = '/orders/success'; // (optionnel si tu l’utilises)
+  static const String orderDetails   = '/orders/details';
   static const String orderHistory   = '/orders/history';
 
+  // ----- Router -----
   static Route<dynamic> generateRoute(RouteSettings settings) {
     debugPrint('🧭 [Router] go → ${settings.name} | args=${settings.arguments}');
 
     switch (settings.name) {
-      case splash:
-        return MaterialPageRoute(builder: (_) => const SplashScreen());
-
+      /* ----------------- Auth ----------------- */
+      
       case login:
         return MaterialPageRoute(builder: (_) => const LoginScreen());
-
       case signup:
         return MaterialPageRoute(builder: (_) => const SignUpScreen());
 
+      /* ----------------- Home ----------------- */
       case home:
         return MaterialPageRoute(builder: (_) => const HomeScreen());
 
-      /* ---------- Orders / Addresses ---------- */
-
+      /* ------------- Orders / Addresses ------------- */
       case chooseAddress:
         return MaterialPageRoute(builder: (_) => const ChooseAddressScreen());
 
       case addAddress:
         return MaterialPageRoute(builder: (_) => const AddEditAddressScreen());
 
-
-       case orderHistory:
+      case orderHistory:
         return MaterialPageRoute(builder: (_) => const OrderHistoryScreen());
+
       case editAddress: {
         final args = settings.arguments;
         if (args is Address? || args == null) {
@@ -71,8 +81,7 @@ class AppRoutes {
         return _oops('Missing Address for editAddress');
       }
 
-      /* ---------- Payment flow ---------- */
-
+      /* ----------------- Payment flow ----------------- */
       case choosePayment: {
         final args = settings.arguments;
         if (args is Address) {
@@ -83,28 +92,37 @@ class AppRoutes {
         return _oops('Missing Address for choosePayment');
       }
 
+      case addCard:
+        return MaterialPageRoute(builder: (_) => const AddCardScreen());
+
       case orderSummary: {
-        // Attend: { address: Address, method: PaymentMethod } OU directement Address
+        // Attend: { address: Address, method: PaymentMethod, card?: CardInput }
         final args = settings.arguments;
         Address? address;
         var method = PaymentMethod.cod;
+        CardInput? card;
 
         if (args is Map) {
           address = args['address'] as Address?;
           method  = (args['method'] as PaymentMethod?) ?? PaymentMethod.cod;
+          card    = args['card'] as CardInput?;
         } else if (args is Address) {
+          // Compat: ancien code qui passait directement l'adresse
           address = args;
         }
 
         if (address == null) return _oops('Missing Address for orderSummary');
 
         return MaterialPageRoute(
-          builder: (_) => FinalOrderSummaryScreen(address: address!, method: method),
+          builder: (_) => FinalOrderSummaryScreen(
+            address: address!,
+            method: method,
+            card: card,
+          ),
         );
       }
 
-      /* ---------- Order post actions ---------- */
-
+      /* -------------- Order post actions -------------- */
       case orderDetails: {
         // args peut être un int (orderId) ou une Map {orderId: ...}
         final args = settings.arguments;
@@ -124,15 +142,13 @@ class AppRoutes {
         );
       }
 
-      
-
+      /* ----------------- Default ----------------- */
       default:
         return _oops('Route not found: ${settings.name}');
     }
   }
 
-  /* ---------- helpers ---------- */
-
+  // ----- Helpers -----
   static int? _asInt(dynamic v) {
     if (v == null) return null;
     if (v is int) return v;

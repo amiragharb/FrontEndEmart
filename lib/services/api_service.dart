@@ -71,23 +71,34 @@ Future<Map<String, dynamic>> fetchRatings(int sellerItemId) async {
 Future<bool> rateProduct(
   int sellerItemId,
   int userId,
-  int rating, {
+  int rating, { // rating reçu en 1..5
   String? comment,
   bool recommend = false,
 }) async {
   final uri = Uri.parse("$baseUrl/items/$sellerItemId/ratings");
-  final body = jsonEncode({
+
+  // Le backend attend un pourcentage (0..100)
+  final int apiRate = (rating * 20).clamp(0, 100);
+
+  final payload = {
     "userId": userId,
-    "rate": rating,
+    "rate": apiRate,               // 👈 ENVOI EN POURCENTAGE
     "comment": comment,
     "recommend": recommend,
-  });
+  };
+
+  // Logs utiles
+  // ignore: avoid_print
+  print("📨 POST $uri body=$payload");
 
   final response = await http.post(
     uri,
     headers: {"Content-Type": "application/json"},
-    body: body,
+    body: jsonEncode(payload),
   );
+
+  // ignore: avoid_print
+  print("📩 status=${response.statusCode} body=${response.body}");
 
   return response.statusCode == 200 || response.statusCode == 201;
 }
@@ -132,7 +143,7 @@ Future<List<VideoModel>> fetchVideos(int medicineId) async {
       return jsonData.map((e) => VideoModel.fromJson(e)).toList();
     } else {
       print("⚠️ [fetchVideos] Non-200 status, returning empty list");
-      return [];
+      return []; 
     }
   } catch (e, stack) {
     print("❌ [fetchVideos] Exception: $e");

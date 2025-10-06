@@ -6,12 +6,10 @@ import 'package:frontendemart/viewmodels/Config_ViewModel.dart';
 import 'package:frontendemart/viewmodels/auth_viewmodel.dart';
 import 'package:provider/provider.dart';
 import 'signup_screen.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:easy_localization/easy_localization.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
-
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
@@ -21,7 +19,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final emailOrPhoneController = TextEditingController();
   final passwordController = TextEditingController();
   final _forgotEmailCtrl = TextEditingController();
-
   bool _obscurePassword = true;
 
   @override
@@ -32,292 +29,380 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  // Regex email
+  // ===== Utils =====
   final _emailRx = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-  // Regex téléphone égyptien: +20 / 0 + (10|11|12|15) + 8 chiffres
   final _egPhoneRx = RegExp(r'^(?:\+20|0)(10|11|12|15)\d{8}$');
-  final _egLocalRx = RegExp(r'^0(10|11|12|15)\d{8}$'); // pour normaliser en +20...
+  final _egLocalRx = RegExp(r'^0(10|11|12|15)\d{8}$');
+
+  Color _parseHexColor(String? hex, {Color fallback = const Color(0xFFEE6B33)}) {
+    if (hex == null) return fallback;
+    var s = hex.trim().replaceAll('#', '');
+    if (s.toLowerCase().startsWith('0x')) s = s.substring(2);
+    if (s.length == 6) s = 'FF$s';
+    final v = int.tryParse(s, radix: 16);
+    return v != null ? Color(v) : fallback;
+  }
+
+  Color _onPrimary(Color c) {
+    final l = (0.299 * c.red + 0.587 * c.green + 0.114 * c.blue) / 255.0;
+    return l > 0.6 ? const Color(0xFF1A1A1A) : Colors.white;
+  }
 
   @override
-Widget build(BuildContext context) {
-  // Listen to locale to force rebuild on language change
-  final _ = context.locale;
-  final screen = MediaQuery.of(context).size;
+  Widget build(BuildContext context) {
+    final _ = context.locale; // rebuild on language change
+    final screen = MediaQuery.of(context).size;
 
-  // Récupération config backend
-  final configVM = Provider.of<ConfigViewModel>(context);
-  final config = configVM.config;
+    final configVM = Provider.of<ConfigViewModel>(context);
+    final config = configVM.config;
 
-  // Couleurs backend ou fallback
-  final primaryColor = (config?.ciPrimaryColor != null && config!.ciPrimaryColor!.isNotEmpty)
-      ? Color(int.parse('FF${config.ciPrimaryColor}', radix: 16))
-      : const Color(0xFFEE6B33);
+    final primaryColor   = _parseHexColor(config?.ciPrimaryColor,   fallback: const Color(0xFF233B8E)); // exemple navy
+    final secondaryColor = _parseHexColor(config?.ciSecondaryColor, fallback: const Color(0xFF9FA8DA)); // exemple soft
+    final onPrimary = _onPrimary(primaryColor);
 
-  final secondaryColor = (config?.ciSecondaryColor != null && config!.ciSecondaryColor!.isNotEmpty)
-      ? Color(int.parse('FF${config.ciSecondaryColor}', radix: 16))
-      : Colors.white;
+    return Scaffold(
+      backgroundColor: Colors.white, // fond blanc
+      body: Stack(
+        children: [
+          // ===== BLOBS =====
+          // primaire (haut-gauche)
+          Positioned(
+            top: -80, left: -40,
+            child: _Blob(color: primaryColor.withOpacity(.22), size: 220),
+          ),
+          // primaire (bas-droit)
+          Positioned(
+            bottom: -60, right: -30,
+            child: _Blob(color: primaryColor.withOpacity(.16), size: 240),
+          ),
+          // secondaire (haut-droit) → rappel
+          Positioned(
+            top: -55, right: -35,
+            child: _Blob(color: secondaryColor.withOpacity(.20), size: 160),
+          ),
+          // secondaire (bas-gauche) → rappel
+          Positioned(
+            bottom: -70, left: -50,
+            child: _Blob(color: secondaryColor.withOpacity(.18), size: 180),
+          ),
 
-  return Scaffold(
-    backgroundColor: secondaryColor,
-    body: Stack(
-      children: [
-        // Background gradient
-        Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [secondaryColor.withOpacity(.9), secondaryColor.withOpacity(.6)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+          // ===== language switch =====
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Align(
+                alignment: Alignment.topRight,
+                child: Consumer2<ConfigViewModel, LocaleProvider>(
+                  builder: (context, cfg, localeProvider, _) {
+                    final supported = cfg.supportedLanguages;
+                    final isEnglish = context.locale.languageCode == 'en';
+
+                    if (cfg.forcedLanguage != null) {
+                      final forced = Locale(cfg.forcedLanguage!);
+                      if (context.locale.languageCode != forced.languageCode) {
+                        EasyLocalization.of(context)!.setLocale(forced);
+                        localeProvider.setLocale(forced);
+                      }
+                      return const SizedBox.shrink();
+                    }
+
+                    if (supported.length > 1) {
+                      return GestureDetector(
+                        onTap: () async {
+                          final newLocale = isEnglish ? const Locale('ar') : const Locale('en');
+                          await EasyLocalization.of(context)!.setLocale(newLocale);
+                          localeProvider.setLocale(newLocale);
+                        },
+                        child: Text(
+                          isEnglish ? "🇺🇸 English" : "🇪🇬 العربية",
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: primaryColor),
+                        ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+              ),
             ),
           ),
-        ),
-        Positioned(
-          top: -80,
-          left: -40,
-          child: _Blob(color: primaryColor.withOpacity(.25), size: 220),
-        ),
-        Positioned(
-          bottom: -60,
-          right: -30,
-          child: _Blob(color: primaryColor.withOpacity(.18), size: 240),
-        ),
-        const SizedBox(height: 16),
-        SafeArea(
-  child: Padding(
-    padding: const EdgeInsets.all(16.0),
-    child: Align(
-      alignment: Alignment.topRight,
-      child: Consumer2<ConfigViewModel, LocaleProvider>(
-        builder: (context, configVM, localeProvider, _) {
-          // Vérifier les langues disponibles depuis le backend
-          final supportedLangs = configVM.supportedLanguages;
-          final isEnglish = context.locale.languageCode == 'en';
 
-          // Si une seule langue → appliquer et cacher le bouton
-          if (configVM.forcedLanguage != null) {
-            final forced = Locale(configVM.forcedLanguage!);
-            if (context.locale.languageCode != forced.languageCode) {
-              EasyLocalization.of(context)!.setLocale(forced);
-              localeProvider.setLocale(forced);
-            }
-            return const SizedBox.shrink(); // rien à afficher
-          }
+          // ===== content =====
+          SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const SizedBox(height: 16),
+                    Image.network(
+                      config?.ciLogo ?? 'assets/logo_BlueTransparent.png',
+                      height: 120,
+                    ),
 
-          // Sinon → afficher le switcher
-          if (supportedLangs.length > 1) {
-            return GestureDetector(
-              onTap: () async {
-                final newLocale = isEnglish ? const Locale('ar') : const Locale('en');
-                await EasyLocalization.of(context)!.setLocale(newLocale);
-                localeProvider.setLocale(newLocale);
-              },
-              child: Text(
-                isEnglish ? "🇺🇸 English" : "🇪🇬 العربية",
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-            );
-          }
-
-          return const SizedBox.shrink();
-        },
-      ),
-    ),
-  ),
-),
-
-
-        SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const SizedBox(height: 16),
-                  Image.network(
-                    config?.ciLogo ?? 'assets/logo_BlueTransparent.png',
-                    height: 120,
-                  ),
-
-                  // GLASS CARD
-                  _GlassCard(
-                    width: screen.width * .9,
-                    padding: const EdgeInsets.fromLTRB(22, 22, 22, 26),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              _GlassTab(
-                                label: 'login'.tr(),
-                                isActive: true,
-                                underlineColor: primaryColor,
-                              ),
-                              const SizedBox(width: 20),
-                              GestureDetector(
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                        builder: (_) => const SignUpScreen()),
-                                  );
-                                },
-                                child: Builder(
-                                  builder: (context) {
-                                    final locale = context.locale.languageCode;
-                                    return Text(
-                                      'signup'.tr(),
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        color: Colors.black87,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                      textAlign: locale == 'ar'
-                                          ? TextAlign.right
-                                          : TextAlign.left,
-                                    );
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 22),
-                          _GlassTextField(
-                            controller: emailOrPhoneController,
-                            hint: 'emailOrPhone'.tr(),
-                            icon: Icons.alternate_email,
-                            validator: (v) {
-                              final value = (v ?? '').trim();
-                              if (value.isEmpty) return 'requiredField'.tr();
-                              final isEmail = _emailRx.hasMatch(value);
-                              final isEgPhone = _egPhoneRx.hasMatch(value);
-                              if (!isEmail && !isEgPhone) {
-                                return 'invalidEmailOrPhone'.tr();
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          _GlassTextField(
-                            controller: passwordController,
-                            hint: 'password'.tr(),
-                            icon: Icons.lock,
-                            obscure: _obscurePassword,
-                            validator: (v) => v == null || v.trim().isEmpty
-                                ? 'requiredField'.tr()
-                                : null,
-                            trailing: IconButton(
-                              icon: Icon(
-                                _obscurePassword
-                                    ? Icons.visibility
-                                    : Icons.visibility_off,
-                                color: Colors.black87,
-                              ),
-                              onPressed: () => setState(
-                                  () => _obscurePassword = !_obscurePassword),
-                            ),
-                          ),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: Text(
-                              'forgotPassword'.tr(),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black87,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          _GlassButton(
-                            label: 'login'.tr(),
-                            color: primaryColor,
-                            onPressed: () {
-                              if (_formKey.currentState!.validate()) {
-                                final vm = Provider.of<AuthViewModel>(context, listen: false);
-                                String id = emailOrPhoneController.text.trim();
-                                if (_egLocalRx.hasMatch(id)) {
-                                  id = '+20${id.substring(1)}';
-                                }
-                                vm.login(id, passwordController.text, context);
-                              }
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              const Expanded(child: Divider(thickness: .8)),
-                              Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 10),
-                                child: Text(
-                                  'orSignInWith'.tr(),
-                                  style: const TextStyle(color: Colors.black54),
-                                ),
-                              ),
-                              const Expanded(child: Divider(thickness: .8)),
-                            ],
-                          ),
-                          const SizedBox(height: 14),
-                          Consumer<AuthViewModel>(
-                            builder: (_, vm, __) => Row(
+                    _GlassCard(
+                      width: screen.width * .9,
+                      padding: const EdgeInsets.fromLTRB(22, 22, 22, 26),
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          children: [
+                            Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                _GlassCircleIcon(
-                                  icon: FontAwesomeIcons.google,
-                                  iconColor: const Color(0xFFDB4437),
-                                  onTap: () {
-                                    debugPrint('[UI] Google icon tapped');
-                                    Provider.of<AuthViewModel>(context, listen: false)
-                                        .signInWithGoogle(context);
-                                  },
-                                ),
-                                const SizedBox(width: 18),
-                                _GlassCircleIcon(
-                                  icon: FontAwesomeIcons.facebookF,
-                                  iconColor: const Color(0xFF3b5998),
-                                  onTap: () => vm.signInWithFacebook(context),
+                                _GlassTab(label: 'login'.tr(), isActive: true, underlineColor: primaryColor),
+                                const SizedBox(width: 20),
+                                GestureDetector(
+                                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SignUpScreen())),
+                                  child: Builder(
+                                    builder: (context) {
+                                      final locale = context.locale.languageCode;
+                                      return Text(
+                                        'signup'.tr(),
+                                        style: const TextStyle(fontSize: 16, color: Colors.black87, fontWeight: FontWeight.w500),
+                                        textAlign: locale == 'ar' ? TextAlign.right : TextAlign.left,
+                                      );
+                                    },
+                                  ),
                                 ),
                               ],
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 22),
+
+                            _GlassTextField(
+                              controller: emailOrPhoneController,
+                              hint: 'emailOrPhone'.tr(),
+                              icon: Icons.alternate_email,
+                              validator: (v) {
+                                final value = (v ?? '').trim();
+                                if (value.isEmpty) return 'requiredField'.tr();
+                                final isEmail = _emailRx.hasMatch(value);
+                                final isEgPhone = _egPhoneRx.hasMatch(value);
+                                if (!isEmail && !isEgPhone) return 'invalidEmailOrPhone'.tr();
+                                return null;
+                              },
+                              primaryColor: primaryColor,
+                            ),
+                            const SizedBox(height: 12),
+
+                            _GlassTextField(
+                              controller: passwordController,
+                              hint: 'password'.tr(),
+                              icon: Icons.lock,
+                              obscure: _obscurePassword,
+                              validator: (v) => v == null || v.trim().isEmpty ? 'requiredField'.tr() : null,
+                              trailing: IconButton(
+                                icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off, color: Colors.black87),
+                                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                              ),
+                              primaryColor: primaryColor,
+                            ),
+
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton(
+                                style: TextButton.styleFrom(
+                                  padding: EdgeInsets.zero,
+                                  minimumSize: const Size(0, 0),
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                onPressed: () {
+                                  FocusScope.of(context).unfocus();
+                                  _showForgotPasswordDialog();
+                                },
+                                child: Text(
+                                  'forgotPassword'.tr(),
+                                  style: TextStyle(fontWeight: FontWeight.w600, color: primaryColor),
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 6),
+                            _GlassButton(
+                              label: 'login'.tr(),
+                              color: primaryColor,
+                              onColor: onPrimary,
+                              onPressed: () {
+                                if (_formKey.currentState!.validate()) {
+                                  final vm = Provider.of<AuthViewModel>(context, listen: false);
+                                  String id = emailOrPhoneController.text.trim();
+                                  if (_egLocalRx.hasMatch(id)) id = '+20${id.substring(1)}';
+                                  vm.login(id, passwordController.text, context);
+                                }
+                              },
+                            ),
+
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                const Expanded(child: Divider(thickness: .8)),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                                  child: Text('orSignInWith'.tr(), style: const TextStyle(color: Colors.black54)),
+                                ),
+                                const Expanded(child: Divider(thickness: .8)),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+
+                            Consumer<AuthViewModel>(
+                              builder: (_, vm, __) => Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  
+                                  const SizedBox(width: 18),
+                                  _GlassCircleIcon(
+                                    icon: FontAwesomeIcons.google,
+                                    iconColor: const Color(0xFFDB4437),
+                                    onTap: () => Provider.of<AuthViewModel>(context, listen: false).signInWithGoogle(context),
+                                    borderTint: primaryColor.withOpacity(.28),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
 
-
-  /* ---------------- Forgot password ---------------- */
-
+  // ===== Forgot password dialogs =====
   void _showForgotPasswordDialog() {
+    final formKey = GlobalKey<FormState>();
+    bool sending = false;
+
+    showDialog(
+      context: context,
+      useRootNavigator: true,
+      barrierDismissible: false,
+      barrierColor: Colors.black.withOpacity(.25),
+      builder: (_) {
+        return StatefulBuilder(
+          builder: (ctx, setState) => Dialog(
+            insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                  color: Colors.white.withOpacity(0.92),
+                  child: Form(
+                    key: formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('resetPassword'.tr(), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
+                        const SizedBox(height: 14),
+                        TextFormField(
+                          controller: _forgotEmailCtrl,
+                          keyboardType: TextInputType.emailAddress,
+                          validator: (v) {
+                            final email = v?.trim() ?? '';
+                            if (email.isEmpty) return 'emailRequired'.tr();
+                            if (!_emailRx.hasMatch(email)) return 'invalidEmail'.tr();
+                            return null;
+                          },
+                          decoration: InputDecoration(
+                            hintText: 'yourEmail'.tr(),
+                            prefixIcon: const Icon(Icons.email_outlined),
+                            filled: true,
+                            fillColor: Colors.white,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide(color: _parseHexColor(Provider.of<ConfigViewModel>(context, listen: false).config?.ciPrimaryColor, fallback: const Color(0xFF233B8E))),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            TextButton(onPressed: sending ? null : () => Navigator.pop(context), child: Text('cancel'.tr())),
+                            const Spacer(),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _parseHexColor(Provider.of<ConfigViewModel>(context, listen: false).config?.ciPrimaryColor, fallback: const Color(0xFF233B8E)),
+                                foregroundColor: _onPrimary(_parseHexColor(Provider.of<ConfigViewModel>(context, listen: false).config?.ciPrimaryColor, fallback: const Color(0xFF233B8E))),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              onPressed: sending
+                                  ? null
+                                  : () async {
+                                      if (!formKey.currentState!.validate()) return;
+                                      setState(() => sending = true);
+                                      final email = _forgotEmailCtrl.text.trim();
+                                      final vm = Provider.of<AuthViewModel>(context, listen: false);
+                                      final ok = await vm.requestPasswordReset(context, email);
+                                      if (!mounted) return;
+                                      if (ok) {
+                                        final nav = Navigator.of(context, rootNavigator: true);
+                                        nav.pop();
+                                        await Future.delayed(const Duration(milliseconds: 50));
+                                        if (!mounted) return;
+                                        _showCodeDialog(email);
+                                      } else {
+                                        setState(() => sending = false);
+                                      }
+                                    },
+                              child: sending
+                                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                                  : Text('send'.tr()),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showCodeDialog(String email) {
+  final codeCtrl = TextEditingController();
   final formKey = GlobalKey<FormState>();
-  bool sending = false;
+
+  // couleurs dynamiques identiques à la 1ère popup
+  final cfg = Provider.of<ConfigViewModel>(context, listen: false).config;
+  final primary = _parseHexColor(cfg?.ciPrimaryColor,   fallback: const Color(0xFF233B8E));
+  final second  = _parseHexColor(cfg?.ciSecondaryColor, fallback: const Color(0xFF9FA8DA));
+  final onPrim  = _onPrimary(primary);
 
   showDialog(
     context: context,
+    useRootNavigator: true,
     barrierDismissible: false,
     barrierColor: Colors.black.withOpacity(.25),
-    builder: (_) {
-      return StatefulBuilder(
-        builder: (ctx, setState) => Dialog(
-          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20)),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(20),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-              child: Container(
+    builder: (_) => Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Stack(
+            children: [
+              // petite tache de rappel secondary (comme demandé)
+              Positioned(
+                top: -28,
+                right: -20,
+                child: _Blob(color: second.withOpacity(.22), size: 120),
+              ),
+              Container(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
                 color: Colors.white.withOpacity(0.92),
                 child: Form(
@@ -325,91 +410,64 @@ Widget build(BuildContext context) {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        'resetPassword'.tr(),
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w700, fontSize: 18),
+                      // Titre + badge rappel secondary
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'enterCode'.tr(),
+                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+                          ),
+                          const SizedBox(width: 8),
+                          _AccentBadge(color: second), // petit rappel de couleur
+                        ],
                       ),
                       const SizedBox(height: 14),
+
                       TextFormField(
-                        controller: _forgotEmailCtrl,
-                        keyboardType: TextInputType.emailAddress,
-                        validator: (v) {
-                          final email = v?.trim() ?? '';
-                          final ok = _emailRx.hasMatch(email);
-                          if (email.isEmpty) {
-                            return 'emailRequired'.tr();
-                          }
-                          if (!ok) {
-                            return 'invalidEmail'.tr();
-                          }
-                          return null;
-                        },
+                        controller: codeCtrl,
+                        autofocus: true,
+                        validator: (v) => (v == null || v.trim().isEmpty) ? 'codeRequired'.tr() : null,
                         decoration: InputDecoration(
-                          hintText: 'yourEmail'.tr(),
-                          prefixIcon: const Icon(Icons.email_outlined),
+                          hintText: 'code'.tr(),
+                          prefixIcon: const Icon(Icons.lock_outline),
                           filled: true,
                           fillColor: Colors.white,
-                          border: OutlineInputBorder(
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                          enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(color: Colors.white.withOpacity(.6)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(color: primary, width: 1.4),
                           ),
                         ),
+                        onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
                       ),
+
                       const SizedBox(height: 16),
                       Row(
                         children: [
                           TextButton(
-                            onPressed: sending
-                                ? null
-                                : () => Navigator.pop(context),
+                            onPressed: () => Navigator.pop(context),
                             child: Text('cancel'.tr()),
                           ),
                           const Spacer(),
                           ElevatedButton(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFEE6B33),
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
+                              backgroundColor: primary,
+                              foregroundColor: onPrim,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              elevation: 6,
+                              shadowColor: primary.withOpacity(.25),
                             ),
-                            onPressed: sending
-                                ? null
-                                : () async {
-                                    if (!formKey.currentState!.validate()) {
-                                      return;
-                                    }
-                                    setState(() => sending = true);
-
-                                    final email =
-                                        _forgotEmailCtrl.text.trim();
-                                    final vm =
-                                        Provider.of<AuthViewModel>(context,
-                                            listen: false);
-                                    final ok = await vm.requestPasswordReset(
-                                        context, email);
-
-                                    if (!mounted) return;
-                                    if (ok) {
-                                      final nav = Navigator.of(context,
-                                          rootNavigator: true);
-                                      nav.pop(); // fermer 1ère popup
-                                      await Future.delayed(const Duration(
-                                          milliseconds: 50));
-                                      if (!mounted) return;
-                                      _showCodeDialog(email); // ouvrir 2ème
-                                    } else {
-                                      setState(() => sending = false);
-                                    }
-                                  },
-                            child: sending
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2),
-                                  )
-                                : Text('send'.tr()),
+                            onPressed: () async {
+                              if (!formKey.currentState!.validate()) return;
+                              final vm = Provider.of<AuthViewModel>(context, listen: false);
+                              await vm.verifyResetCode(context, email, codeCtrl.text.trim());
+                            },
+                            child: Text('verify'.tr()),
                           ),
                         ],
                       ),
@@ -417,64 +475,33 @@ Widget build(BuildContext context) {
                   ),
                 ),
               ),
-            ),
+            ],
           ),
         ),
-      );
-    },
+      ),
+    ),
   );
 }
 
-
-  void _showCodeDialog(String email)
-   {
-  final codeCtrl = TextEditingController();
-  final formKey = GlobalKey<FormState>();
-
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (_) => AlertDialog(
-  title: Text('enterCode'.tr()),
-      content: Form(
-        key: formKey,
-        child: TextFormField(
-          controller: codeCtrl,
-          autofocus: true,
-          validator: (v) => (v == null || v.trim().isEmpty)
-              ? 'codeRequired'.tr()
-              : null,
-          decoration: InputDecoration(
-            hintText: 'code'.tr(),
-            prefixIcon: const Icon(Icons.lock_outline),
-          ),
-          onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
-        ),
+}
+class _AccentBadge extends StatelessWidget {
+  final Color color;
+  const _AccentBadge({required this.color});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 10, height: 10,
+      decoration: BoxDecoration(
+        color: color.withOpacity(.9),
+        shape: BoxShape.circle,
+        boxShadow: [BoxShadow(color: color.withOpacity(.35), blurRadius: 10, offset: const Offset(0, 4))],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text('cancel'.tr()),
-        ),
-        ElevatedButton(
-          onPressed: () async {
-            if (!formKey.currentState!.validate()) return;
-            final vm = Provider.of<AuthViewModel>(context, listen: false);
-            await vm.verifyResetCode(
-              context,
-              email,
-              codeCtrl.text.trim(),
-            );
-          },
-          child: Text('verify'.tr()),
-        ),
-      ],
-    ),
-  );
-}}
+    );
+  }
+}
 
 
-/* ---------- components ---------- */
+/* ================= components ================= */
 
 class _Blob extends StatelessWidget {
   final Color color;
@@ -490,9 +517,7 @@ class _Blob extends StatelessWidget {
         decoration: BoxDecoration(
           color: color,
           shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(color: color, blurRadius: 90, spreadRadius: 40),
-          ],
+          boxShadow: [BoxShadow(color: color, blurRadius: 90, spreadRadius: 40)],
         ),
       ),
     );
@@ -522,13 +547,7 @@ class _GlassCard extends StatelessWidget {
             color: Colors.white.withOpacity(0.35),
             borderRadius: BorderRadius.circular(28),
             border: Border.all(color: Colors.white.withOpacity(0.6), width: 1),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(.08),
-                blurRadius: 24,
-                offset: const Offset(0, 10),
-              ),
-            ],
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(.08), blurRadius: 24, offset: const Offset(0, 10))],
           ),
           child: child,
         ),
@@ -544,6 +563,7 @@ class _GlassTextField extends StatelessWidget {
   final bool obscure;
   final String? Function(String?)? validator;
   final Widget? trailing;
+  final Color? primaryColor;
 
   const _GlassTextField({
     required this.controller,
@@ -552,10 +572,12 @@ class _GlassTextField extends StatelessWidget {
     this.obscure = false,
     this.validator,
     this.trailing,
+    this.primaryColor,
   });
 
   @override
   Widget build(BuildContext context) {
+    final pc = primaryColor ?? const Color(0xFFEE6B33);
     return ClipRRect(
       borderRadius: BorderRadius.circular(18),
       child: BackdropFilter(
@@ -570,8 +592,7 @@ class _GlassTextField extends StatelessWidget {
             hintText: hint,
             prefixIcon: Icon(icon, color: Colors.black87),
             suffixIcon: trailing,
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(18),
               borderSide: BorderSide(color: Colors.white.withOpacity(.7)),
@@ -580,9 +601,9 @@ class _GlassTextField extends StatelessWidget {
               borderRadius: BorderRadius.circular(18),
               borderSide: BorderSide(color: Colors.white.withOpacity(.6)),
             ),
-            focusedBorder: const OutlineInputBorder(
-              borderRadius: BorderRadius.all(Radius.circular(18)),
-              borderSide: BorderSide(color: Color(0xFFEE6B33), width: 1.4),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: const BorderRadius.all(Radius.circular(18)),
+              borderSide: BorderSide(color: pc, width: 1.4),
             ),
           ),
         ),
@@ -594,15 +615,22 @@ class _GlassTextField extends StatelessWidget {
 class _GlassButton extends StatelessWidget {
   final String label;
   final Color color;
+  final Color? onColor;
   final VoidCallback onPressed;
   const _GlassButton({
     required this.label,
     required this.color,
     required this.onPressed,
+    this.onColor,
   });
 
   @override
   Widget build(BuildContext context) {
+    final textColor = onColor ??
+        ((0.299 * color.red + 0.587 * color.green + 0.114 * color.blue) / 255.0 > 0.6
+            ? const Color(0xFF1A1A1A)
+            : Colors.white);
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(18),
       child: BackdropFilter(
@@ -611,23 +639,15 @@ class _GlassButton extends StatelessWidget {
           width: double.infinity,
           child: ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: color.withOpacity(.9),
-              foregroundColor: Colors.white,
+              backgroundColor: color.withOpacity(.95),
+              foregroundColor: textColor,
               padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
               elevation: 6,
               shadowColor: color.withOpacity(.35),
             ),
             onPressed: onPressed,
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            child: Text(label, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           ),
         ),
       ),
@@ -639,40 +659,35 @@ class _GlassCircleIcon extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
   final VoidCallback onTap;
+  final Color? borderTint;
 
   const _GlassCircleIcon({
     required this.icon,
     required this.iconColor,
     required this.onTap,
+    this.borderTint,
   });
 
   @override
   Widget build(BuildContext context) {
+    final tint = borderTint ?? Colors.white.withOpacity(.7);
     return SizedBox(
       width: 56,
       height: 56,
-      child: Material( // ✅ Surface Material pour capter les taps
+      child: Material(
         type: MaterialType.transparency,
         shape: const CircleBorder(),
-        child: Ink( // ✅ support du splash + hit test
+        child: Ink(
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(.55),
             shape: BoxShape.circle,
-            border: Border.all(color: Colors.white.withOpacity(.7)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(.08),
-                blurRadius: 12,
-                offset: const Offset(0, 6),
-              ),
-            ],
+            border: Border.all(color: tint),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(.08), blurRadius: 12, offset: const Offset(0, 6))],
           ),
           child: InkWell(
             customBorder: const CircleBorder(),
             onTap: onTap,
-            child: Center(
-              child: Icon(icon, color: iconColor, size: 26),
-            ),
+            child: Center(child: Icon(icon, color: iconColor, size: 26)),
           ),
         ),
       ),
@@ -680,16 +695,11 @@ class _GlassCircleIcon extends StatelessWidget {
   }
 }
 
-  
 class _GlassTab extends StatelessWidget {
   final String label;
   final bool isActive;
   final Color underlineColor;
-  const _GlassTab({
-    required this.label,
-    required this.isActive,
-    required this.underlineColor,
-  });
+  const _GlassTab({required this.label, required this.isActive, required this.underlineColor});
 
   @override
   Widget build(BuildContext context) {
@@ -698,11 +708,7 @@ class _GlassTab extends StatelessWidget {
       children: [
         Text(
           label,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: isActive ? underlineColor : Colors.black87,
-          ),
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: isActive ? underlineColor : Colors.black87),
           textAlign: locale == 'ar' ? TextAlign.right : TextAlign.left,
         ),
         const SizedBox(height: 6),
@@ -710,13 +716,9 @@ class _GlassTab extends StatelessWidget {
           Container(
             height: 2,
             width: 46,
-            decoration: BoxDecoration(
-              color: underlineColor,
-              borderRadius: BorderRadius.circular(4),
-            ),
+            decoration: BoxDecoration(color: underlineColor, borderRadius: BorderRadius.circular(4)),
           ),
       ],
     );
   }
-  
 }

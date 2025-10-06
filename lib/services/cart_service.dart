@@ -10,7 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class CartService {
   static const String _cartKey = "cart_items";
   static const String _addressKey = "addresses";
-static const String baseUrl = ApiConfig.baseUrl;
+static final String baseUrl = ApiConfig.baseUrl;
 
   /// -------------------- CART --------------------
 
@@ -80,56 +80,94 @@ static const String baseUrl = ApiConfig.baseUrl;
     await saveAddresses(addresses);
   }
 
- // lib/services/cart_service.dart
+ // lib/services/cart_service.dart// services/cart_service.dart
 static Future<Map<String, dynamic>> placeOrder({
   required int userId,
   required int userLocationId,
   required PaymentMethod method,
-  required DateTime? deliveryStart,
-  required DateTime? deliveryEnd,
+  required DateTime deliveryStart,
+  required DateTime deliveryEnd,
   required double total,
-  double deliveryFees = 0,
-  double discountAmount = 0,
-  int? userPromoCodeId,
+  required double deliveryFees,
+  required double discountAmount,
+  required List<Map<String, dynamic>> items,
   String? additionalNotes,
-  List<Map<String, dynamic>>? items,
+  int? userPromoCodeId,
+  String? promoCode, // 👈 nouveau
 }) async {
-  final payload = {
-    "userId": userId,
-    "userLocationId": userLocationId,
-    "invoicePaymentMethodId": method == PaymentMethod.cod ? 1 : 2,
-    "additionalNotes": additionalNotes,
-    "deliveryStartTime": deliveryStart?.toIso8601String(),
-    "deliveryEndTime": deliveryEnd?.toIso8601String(),
-    "discountAmount": discountAmount,
-    "userPromoCodeId": userPromoCodeId,
-    "deliveryFees": deliveryFees,
-    "total": total,
-    "items": items ?? [],
-  };
-// lib/services/cart_service.dart
-debugPrint('📡 POST $baseUrl/orders');
-debugPrint('↗️ payload=${jsonEncode(payload)}');
-
-  // ⬇️ récupère le token sauvegardé par AuthViewModel
   final prefs = await SharedPreferences.getInstance();
   final token = prefs.getString('token');
 
-  final headers = <String, String>{
+  final body = {
+    'userId': userId,
+    'userLocationId': userLocationId,
+    'invoicePaymentMethodId': method == PaymentMethod.cod ? 1 : 2,
+    'deliveryStartTime': deliveryStart.toIso8601String(),
+    'deliveryEndTime': deliveryEnd.toIso8601String(),
+    'total': total, // (le back recalcule tout de toute façon)
+    'deliveryFees': deliveryFees,
+    'discountAmount': discountAmount,
+    'additionalNotes': additionalNotes,
+    'userPromoCodeId': userPromoCodeId,
+    'promoCode': promoCode,                 // 👈 **passe le code**
+    'items': items,
+  };
+
+  final uri = Uri.parse('${ApiConfig.baseUrl}/orders');
+  final headers = {
+    'Accept': 'application/json',
     'Content-Type': 'application/json',
     if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
   };
 
-  final res = await http.post(
-    Uri.parse('$baseUrl/orders'),
-    headers: headers,
-    body: jsonEncode(payload),
-  );
+  final res = await http
+      .post(uri, headers: headers, body: json.encode(body))
+      .timeout(const Duration(seconds: 20));
 
-  if (res.statusCode >= 200 && res.statusCode < 300) {
-    return jsonDecode(res.body) as Map<String, dynamic>;
+  if (res.statusCode < 200 || res.statusCode >= 300) {
+    throw Exception('placeOrder failed: ${res.statusCode} ${res.body}');
   }
-  throw Exception('ORDER_CREATE_FAILED: ${res.statusCode} ${res.body}');
+  final map = json.decode(res.body);
+  return (map is Map<String, dynamic>) ? map : <String, dynamic>{};
 }
+
+// lib/services/cart_service.dart
+// lib/services/cart_service.dart
+
+static String _numStr(double n) => n.toStringAsFixed(2).replaceAll(',', '.');
+
+
+
+ static Future<Map<String, dynamic>> previewPromo({
+    required String code,
+    required double subTotal,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+
+    final uri = Uri.parse('${ApiConfig.baseUrl}/orders/promo/validate').replace(
+      queryParameters: {
+        'code': code,
+        'subTotal': subTotal.toStringAsFixed(2), // "220.00"
+      },
+    );
+
+    final headers = <String, String>{
+      'Accept': 'application/json',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    };
+
+    final res = await http
+        .get(uri, headers: headers)
+        .timeout(const Duration(seconds: 15));
+
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw Exception('promo preview failed: ${res.statusCode} ${res.body}');
+    }
+    final map = json.decode(res.body);
+    return (map is Map<String, dynamic>) ? map : <String, dynamic>{};
+  }
+
+
 
 }

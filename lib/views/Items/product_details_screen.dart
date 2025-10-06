@@ -290,14 +290,14 @@ Widget build(BuildContext context)
             ),
           ],
         ),
-                  bottomNavigationBar: const CustomBottomNavBar(currentIndex: 3),
+                  bottomNavigationBar: const CustomBottomNavBar(currentIndex: 1),
 
       );
     },
 
   );
 
-}
+} 
 
 
   Widget _buildImageGalleryModern() {
@@ -936,6 +936,15 @@ Widget _buildDescriptionBlock(String title, String content, IconData icon) {
 }
 
 
+
+int _countFor(List<Map<String, dynamic>> dist, int star) {
+  final row = _rowFor(dist, star);
+  return (row['total'] as num?)?.toInt() ?? 0;
+}
+
+
+
+// ———————————— Ratings card ————————————
 Widget _buildRatingsSection() {
   return Padding(
     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -945,13 +954,13 @@ Widget _buildRatingsSection() {
           return const Center(child: CircularProgressIndicator());
         }
 
-        // --- Correction des notes ---
-        double avg = vm.averageRating;
-        if (avg > 5) avg = 5;
-        if (avg < 0) avg = 0;
+        final avgRaw = vm.averageRating.clamp(0, 5).toDouble();
+        final avg    = ((avgRaw * 2).round() / 2.0); // arrondi .0/.5
+        final total  = vm.totalRatings;
 
-        final avgStr = avg.toStringAsFixed(1);
-        final totalVotes = vm.totalRatings;
+        final full   = avg.floor();
+        final half   = (avg - full) >= 0.5;
+        final empty  = 5 - full - (half ? 1 : 0);
 
         return Container(
           padding: const EdgeInsets.all(20),
@@ -968,16 +977,15 @@ Widget _buildRatingsSection() {
           ),
           child: Column(
             children: [
-              // --- Note moyenne et distribution ---
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Bloc gauche (note moyenne)
+                  // Moyenne
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "$avgStr / 5",
+                        '${avg == avg.floorToDouble() ? avg.toInt() : avg.toStringAsFixed(1)} / 5',
                         style: const TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
@@ -986,42 +994,33 @@ Widget _buildRatingsSection() {
                       ),
                       const SizedBox(height: 6),
                       Row(
-                        children: List.generate(
-                          5,
-                          (index) => Icon(
-                            index < avg.round()
-                                ? Icons.star
-                                : Icons.star_border,
-                            color: _primaryColor, // couleur uniforme
-                            size: 22,
-                          ),
-                        ),
+                        children: [
+                          for (int i = 0; i < full;  i++)
+                            Icon(Icons.star, color: _primaryColor, size: 22),
+                          if (half)
+                            Icon(Icons.star_half, color: _primaryColor, size: 22),
+                          for (int i = 0; i < empty; i++)
+                            Icon(Icons.star_border, color: _primaryColor, size: 22),
+                        ],
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        "($totalVotes ${"reviews".tr()})",
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 14,
-                        ),
+                        '($total ${"reviews".tr()})',
+                        style: TextStyle(color: Colors.grey[600], fontSize: 14),
                       ),
                     ],
                   ),
 
                   const SizedBox(width: 20),
 
-                  // Bloc droit (distribution des étoiles)
+                  // Distribution 5→1
                   Expanded(
                     child: Column(
                       children: List.generate(5, (i) {
-                        final star = 5 - i;
-                        final count = vm.distribution
-                            .firstWhere(
-                              (d) => d["Rate"] == star,
-                              orElse: () => {"total": 0},
-                            )["total"] as int;
-                        final ratio =
-                            totalVotes > 0 ? count / totalVotes : 0.0;
+                        final star  = 5 - i;
+                       final row = _rowFor(vm.distribution, star);
+  final count = row['total'] ?? 0;
+  final ratio = total > 0 ? count / total : 0.0;;
 
                         return Padding(
                           padding: const EdgeInsets.symmetric(vertical: 2),
@@ -1031,24 +1030,20 @@ Widget _buildRatingsSection() {
                                 mainAxisSize: MainAxisSize.min,
                                 children: List.generate(
                                   star,
-                                  (index) => Icon(
-                                    Icons.star,
-                                    size: 14,
-                                    color: _primaryColor, // couleur uniforme
-                                  ),
+                                  (_) => Icon(Icons.star, size: 14, color: _primaryColor),
                                 ),
                               ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: LinearProgressIndicator(
                                   value: ratio,
-                                  backgroundColor: Colors.grey[300],
-                                  color: _primaryColor, // couleur uniforme
                                   minHeight: 6,
+                                  backgroundColor: Colors.grey[300],
+                                  color: _primaryColor,
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              Text("$count"),
+                              Text('$count'),
                             ],
                           ),
                         );
@@ -1060,39 +1055,29 @@ Widget _buildRatingsSection() {
 
               const SizedBox(height: 16),
 
-              // --- Pourcentage de recommandation ---
+              // % recommandé (avec namedArgs %{percent})
               Text(
-                "👍 ${"recommend_product".tr(args: ["${vm.recommendPercent}"])}",
-                style: const TextStyle(
-                  fontWeight: FontWeight.w500,
-                  fontSize: 15,
-                ),
+                'recommend_product'.tr(namedArgs: {'percent': vm.recommendPercent.toString()}),
+                style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
+                textAlign: TextAlign.center,
               ),
 
               const SizedBox(height: 16),
 
-              // --- Bouton Ajouter un avis ---
               SizedBox(
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton.icon(
                   icon: const Icon(Icons.rate_review, color: Colors.white),
                   label: Text(
-                    "add_review".tr(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    'add_review'.tr(),
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: _primaryColor, // couleur uniforme
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    backgroundColor: _primaryColor,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  onPressed: () {
-                    _showAddRatingDialog(context, widget.item.sellerItemID);
-                  },
+                  onPressed: () => _showAddRatingDialog(context, widget.item.sellerItemID),
                 ),
               ),
             ],
@@ -1103,118 +1088,176 @@ Widget _buildRatingsSection() {
   );
 }
 
+// Renvoie toujours un Map<String, int> pour éviter l'erreur de type du orElse
+Map<String, int> _rowFor(List<Map<String, dynamic>> dist, int star) {
+  for (final d in dist) {
+    final r = d['Rate'] ?? d['rate'];
+    if (r is num && r.toInt() == star) {
+      final t = (d['total'] as num?)?.toInt() ?? 0;
+      return <String, int>{'Rate': star, 'total': t};
+    }
+  }
+  // valeur par défaut du bon type
+  return <String, int>{'Rate': star, 'total': 0};
+}
 
-
-void _showAddRatingDialog(BuildContext context, int sellerItemId) {
+  void _showAddRatingDialog(BuildContext context, int sellerItemId) {
   final vm = Provider.of<ItemsViewModel>(context, listen: false);
+
   int selectedRating = 5;
   String comment = "";
   bool recommend = false;
+  bool posting = false;
+
+  debugPrint("[⭐ Dialog] Open for product=$sellerItemId");
 
   showDialog(
     context: context,
-    builder: (ctx) {
-      return StatefulBuilder(
-        builder: (ctx, setStateDialog) {
-          return AlertDialog(
-            title: Text("add_review".tr()),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Star selection
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(5, (index) {
-                    return IconButton(
-                      icon: Icon(
-                        index < selectedRating
-                            ? Icons.star
-                            : Icons.star_border,
-                        color: _primaryColor, // ici la couleur primaire
-                      ),
-                      onPressed: () {
-                        setStateDialog(() {
-                          selectedRating = index + 1;
-                        });
-                      },
-                    );
-                  }),
-                ),
-
-                const SizedBox(height: 16),
-
-                // Comment field
-                TextField(
-                  decoration: InputDecoration(
-                    hintText: "comment_optional".tr(),
-                    border: const OutlineInputBorder(),
-                  ),
-                  maxLines: 3,
-                  onChanged: (val) => comment = val,
-                ),
-
-                const SizedBox(height: 16),
-
-                // Recommendation checkbox
-                Row(
-                  children: [
-                    Checkbox(
-                      value: recommend,
-                      activeColor: _primaryColor, // couleur primaire ici
-                      onChanged: (val) {
-                        setStateDialog(() {
-                          recommend = val ?? false;
-                        });
-                      },
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setStateDialog) {
+        return AlertDialog(
+          title: Text("add_review".tr()),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // --- Sélection d’étoiles ---
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(5, (index) {
+                  final filled = index < selectedRating;
+                  return IconButton(
+                    icon: Icon(
+                      filled ? Icons.star : Icons.star_border,
+                      color: _primaryColor,
                     ),
-                    Expanded(
-                      child: Text("recommend_checkbox".tr()),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                child: Text("cancel".tr()),
-                onPressed: () => Navigator.pop(ctx),
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _primaryColor, // bouton submit couleur primaire
-                ),
-                child: Text(
-                  "submit".tr(),
-                  style: const TextStyle(color: Colors.white),
-                ),
-                onPressed: () async {
-                  final success = await vm.addRating(
-                    sellerItemId,
-                    1, // TODO: Remplacer par l'ID réel de l'utilisateur
-                    selectedRating,
-                    comment: comment.isNotEmpty ? comment : null,
-                    recommend: recommend,
+                    onPressed: posting
+                        ? null
+                        : () {
+                            selectedRating = index + 1;
+                            debugPrint("[⭐ Dialog] rating selected = $selectedRating");
+                            setStateDialog(() {});
+                          },
                   );
+                }),
+              ),
+              const SizedBox(height: 16),
 
-                  Navigator.pop(ctx);
-
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(success
-                            ? "Review added successfully!"
-                            : "Error adding review"),
-                        backgroundColor: success ? Colors.green : Colors.red,
-                      ),
-                    );
+              // --- Commentaire ---
+              TextField(
+                enabled: !posting,
+                decoration: InputDecoration(
+                  hintText: "comment_optional".tr(),
+                  border: const OutlineInputBorder(),
+                ),
+                maxLines: 3,
+                onChanged: (v) {
+                  comment = v;
+                  // Log succinct pour éviter de spammer avec de longs commentaires
+                  if (v.length % 10 == 0) {
+                    debugPrint("[⭐ Dialog] comment len = ${v.length}");
                   }
                 },
               ),
+              const SizedBox(height: 16),
+
+              // --- Recommander ? ---
+              Row(
+                children: [
+                  Checkbox(
+                    value: recommend,
+                    activeColor: _primaryColor,
+                    onChanged: posting
+                        ? null
+                        : (v) {
+                            recommend = v ?? false;
+                            debugPrint("[⭐ Dialog] recommend = $recommend");
+                            setStateDialog(() {});
+                          },
+                  ),
+                  Expanded(child: Text("recommend_checkbox".tr())),
+                ],
+              ),
             ],
-          );
-        },
-      );
-    },
+          ),
+          actions: [
+            // Annuler
+            TextButton(
+              onPressed: posting ? null : () {
+                debugPrint("[⭐ Dialog] cancel tapped");
+                Navigator.of(ctx).maybePop();
+              },
+              child: Text("cancel".tr()),
+            ),
+
+            // Soumettre
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: _primaryColor),
+              onPressed: posting
+                  ? null
+                  : () async {
+                      debugPrint("[⭐ Dialog] submit tapped → rating=$selectedRating, recommend=$recommend");
+
+                      setStateDialog(() => posting = true);
+                      try {
+                        // 👉 MAJ optimiste + POST : déjà géré dans vm.addRating()
+                        final ok = await vm.addRating(
+                          sellerItemId,
+                          1, // ⚠️ Remplace 1 par l’ID réel de l’utilisateur
+                          selectedRating,
+                          comment: comment.isNotEmpty ? comment : null,
+                          recommend: recommend,
+                        );
+                        debugPrint("[⭐ Dialog] addRating() → $ok");
+                        debugPrint("[⭐ Dialog] after add → avg=${vm.averageRating}, total=${vm.totalRatings}, dist=${vm.distribution}");
+
+                        // Fermer si possible
+                        if (Navigator.of(ctx).canPop()) {
+                          Navigator.of(ctx).pop();
+                        }
+
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(ok ? "review_added".tr() : "review_error".tr()),
+                              backgroundColor: ok ? Colors.green : Colors.red,
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        }
+                      } catch (e, st) {
+                        debugPrint("[⭐ Dialog][ERROR] $e");
+                        debugPrint(st.toString());
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text("review_error".tr()),
+                              backgroundColor: Colors.red,
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        }
+                      } finally {
+                        if (ctx.mounted) setStateDialog(() => posting = false);
+                      }
+                    },
+              child: posting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Text(
+                      "submit".tr(),
+                      style: const TextStyle(color: Colors.white),
+                    ),
+            ),
+          ],
+        );
+      },
+    ),
   );
 }
 
@@ -1222,36 +1265,56 @@ void _showAddRatingDialog(BuildContext context, int sellerItemId) {
 
 Widget _buildActionButtonsModern({required Color primaryColor}) {
   final color = primaryColor;
+  final item = widget.item as SellerItem; // assure-toi que widget.item est bien SellerItem
 
   return Padding(
     padding: const EdgeInsets.symmetric(horizontal: 28),
     child: Row(
       children: [
-        // ❤️ Bouton Favori
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.grey[300]!),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withOpacity(0.1),
-                spreadRadius: 1,
-                blurRadius: 10,
-                offset: const Offset(0, 2),
+        // ❤️ Bouton Favori (connecté au Provider)
+        Consumer<WishlistViewModeltep>(
+          builder: (context, wish, _) {
+            final isFav = wish.contains(item);
+            return Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isFav ? Colors.red.withOpacity(.35) : Colors.grey[300]!,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.1),
+                    spreadRadius: 1,
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: IconButton(
-            padding: const EdgeInsets.all(16),
-            icon: Icon(
-              _isFavorite ? Icons.favorite : Icons.favorite_border,
-              color: _isFavorite ? Colors.red : Colors.grey[600],
-              size: 24,
-            ),
-            onPressed: () => setState(() => _isFavorite = !_isFavorite),
-          ),
+              child: IconButton(
+                padding: const EdgeInsets.all(16),
+                icon: Icon(
+                  isFav ? Icons.favorite : Icons.favorite_border,
+        color: isFav ? primaryColor : Colors.grey[600], // 👈 couleur primaire ici
+                  size: 24,
+                ),
+                onPressed: () {
+                  wish.toggle(item);
+                  final msg = isFav
+                      ? 'removed_from_wishlist'.tr()
+                      : 'added_to_wishlist'.tr();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(msg),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
+              ),
+            );
+          },
         ),
+
         const SizedBox(width: 16),
 
         // 🛒 Bouton Add to Cart
@@ -1281,7 +1344,7 @@ Widget _buildActionButtonsModern({required Color primaryColor}) {
               ),
               icon: const Icon(Icons.shopping_cart_outlined, color: Colors.white, size: 22),
               label: Text(
-                "add_to_cart".tr(),
+                'add_to_cart'.tr(),
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 16,
@@ -1289,19 +1352,17 @@ Widget _buildActionButtonsModern({required Color primaryColor}) {
                 ),
               ),
               onPressed: () {
-  final selected = SellerItem.fromJson(widget.item.toJson())..qty = 1;
+                // clone “propre” + qty = 1 (même logique que ton VM)
+                final selected = SellerItem.fromJson(item.toJson())..qty = 1;
+                context.read<CartViewModel>().add(selected);
 
-  context.read<CartViewModel>().add(selected);
-
-  // Optionnel: snack
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text("add_to_cart".tr()), behavior: SnackBarBehavior.floating),
-  );
-
-  // Optionnel: aller au panier
-  // Navigator.push(context, MaterialPageRoute(builder: (_) => const ShowCartScreen()));
-}
-,
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('added_to_cart'.tr()),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              },
             ),
           ),
         ),

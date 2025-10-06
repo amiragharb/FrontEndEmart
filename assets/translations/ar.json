@@ -241,6 +241,53 @@
 
  "no_products_found": "لم يتم العثور على منتجات",
   "try_another_category": "حاول تصفح فئة أخرى",
-    "continue_shopping": "متابعة التسوق"
+    "continue_shopping": "متابعة التسوق",
+      "no_categories_found": "لا توجد فئات",
+        "please_login_again": "يرجى تسجيل الدخول مرة أخرى للمتابعة",
+
+    "all_categories": "كل الفئات",
+      "all_items": "كل المنتجات",
+
+ "reviews": "تقييمات",
+  "add_review": "إضافة تقييم",
+  "comment_optional": "تعليق (اختياري)",
+  "recommend_checkbox": "أوصي بهذا المنتج",
+  "submit": "إرسال",
+  "cancel": "إلغاء",
+  "review_added": "تم إضافة التقييم بنجاح!",
+  "review_error": "تعذر إضافة التقييم، حاول مرة أخرى.",
+  "add_payment_method": "إضافة طريقة الدفع",
+  "enter_your_card_details": "أدخل تفاصيل بطاقتك",
+  "card_preview": "معاينة البطاقة",
+  "card_settings": "إعدادات البطاقة",
+  "card_details": "تفاصيل البطاقة",
+  "name_on_card": "الاسم على البطاقة",
+  "card_number": "رقم البطاقة",
+  "month": "الشهر",
+  "year": "السنة",
+  "expiration_month": "شهر الانتهاء",
+  "expiration_year": "سنة الانتهاء",
+  "use_as_default_payment": "استخدام كطريقة دفع افتراضية",
+  "add_your_card": "أضف بطاقتك",
+  "your_information_is_secure": "معلوماتك آمنة ومشفرة",
+  "required_field": "هذا الحقل مطلوب",
+  "invalid_card": "رقم البطاقة غير صالح",
+  "invalid_cvv": "CVV غير صالح (3-4 أرقام)",
+  "payment_method": "طريقة الدفع",
+  "card_payment": "الدفع بالبطاقة",
+  "verified": "موثق",  "free_delivery": "توصيل مجاني",
+   "region": "المنطقة",
+  "calculating_delivery_fees": "جاري حساب رسوم التوصيل..."
+,"order_status": "حالة الطلب",
+
+
+"status": {
+    "cod_confirmed": "تم تأكيد الدفع عند الاستلام",
+    "pending_payment": "في انتظار الدفع",
+    "paid": "تم الدفع",
+    "failed": "فشل الدفع",
+    "canceled": "تم الإلغاء",
+    "unknown": "حالة غير معروفة"
+  }
 
 }
